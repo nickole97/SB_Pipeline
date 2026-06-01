@@ -1,5 +1,7 @@
 # Stingless Bee Gut Microbiome Pipeline
 
+**16S amplicon analysis and qPCR-based absolute abundance estimation for stingless bee (*Meliponini*) gut microbiomes**
+
 Code repository for:
 
 > **Gain and loss of gut symbionts during stingless bee diversification is linked to host group size**  
@@ -9,59 +11,77 @@ Code repository for:
 
 ## Overview
 
-A three-script R Markdown pipeline for 16S amplicon analysis of the gut microbiome of stingless bees (*Meliponini*), integrating absolute abundance estimates from qPCR and phylogenetic comparative methods.
+This pipeline processes 16S V4 amplicon data from stingless bee gut samples to characterize symbiont community composition, estimate absolute abundances using qPCR, and test associations with host colony size using phylogenetic comparative methods.
+
+The pipeline consists of three sequential R Markdown scripts:
 
 ```
 01_Decontam_and_Filtering.Rmd   →   02_Microbiome_Analysis.Rmd   →   03_qPCR_and_AbsAbundance.Rmd
 ```
 
-Each script reads inputs from `data/` and writes processed outputs back to `data/processed/` and figures to `figures/raw/`. Scripts must be run in order.
+Each script reads inputs from `data/` and writes processed outputs to `data/processed/` and figures to `figures/raw/`. **Scripts must be run in order.**
 
 ---
 
-## Repository structure
-
-```
-SB_Pipeline/
-├── data/
-│   ├── raw/              # Input files (OTU table, taxonomy, metadata, phylogeny, qPCR)
-│   └── processed/        # Intermediate outputs written by each script
-├── figures/
-│   ├── raw/              # PDF figures produced by scripts 02 and 03
-│   └── final/            # Polished figures for publication
-└── scripts/              # R Markdown scripts (run in numbered order)
-```
-
----
-
-## Scripts
+## Pipeline Workflow
 
 ### 01 — Decontam and Filtering
-- Merges sequencing metadata with collection metadata
-- Detects and removes contaminants using the prevalence method (`decontam`, threshold = 0.5)
-- Filters samples with >25% contaminant load
+- Merges sequencing metadata with collection metadata (Claus et al.)
+- Detects and removes contaminants using the prevalence method ([`decontam`](https://github.com/benjjneb/decontam), threshold = 0.5)
+- Filters samples with >25% contaminant read load
 - **Outputs:** `phyloseqOBJ.rds`, `muestras_a_eliminar.rds`, `contamdf.prev05.rds`, `metadata_2025.txt`
 
 ### 02 — Microbiome Analysis
-- Alpha diversity (Shannon, Richness) with PGLS against colony size
-- Beta diversity: CLR-PCA and Bray-Curtis PCoA with PERMANOVA
+- Alpha diversity (Shannon index, Richness) with PGLS against colony size
+- Beta diversity: CLR-PCA ([microViz](https://david-barnett.github.io/microViz/)) and Bray-Curtis PCoA with PERMANOVA ([vegan](https://vegandevs.github.io/vegan/))
 - Composition barplot annotated by biogeographic region
 - Symbiont relative abundance by bee genus (boxplots)
-- Pagel's lambda test and ancestral state reconstruction for symbiont presence/absence
+- Pagel's lambda test and ancestral state reconstruction for symbiont presence/absence ([corHMM](https://github.com/thej022214/corHMM), [phytools](https://github.com/liamrevell/phytools))
 - **Outputs:** `alpha_table.rds`, `pruned_tree.rds`, `metadata_symbionts.rds`, `discrete_*.rds`, figures
 
 ### 03 — qPCR and Absolute Abundance
-- Processes qPCR triplicates: outlier filtering, efficiency correction, 16S copy number estimation
+- Processes qPCR triplicates: outlier filtering and efficiency correction
+- Estimates total 16S gene copies per sample
 - Calculates absolute symbiont abundance = relative abundance × total 16S copies per µL
-- Barplots and boxplots of absolute abundance by bee genus
+- Boxplots of absolute abundance by bee genus
 - PGLS of absolute abundance against colony size
 - **Outputs:** `qpcr_filtered.rds`, `unique_all_avg.rds`, `estimated_abs_abundance_*.tsv`, `OTUs_AbsAbun.tsv`, figures
 
 ---
 
-## Dependencies
+## Computing Environment
 
-R ≥ 4.2. Install required packages:
+All analyses were performed locally on macOS using **R ≥ 4.2** and **RStudio**. No HPC cluster is required.
+
+---
+
+## Requirements
+
+### R packages
+
+**Amplicon analysis:**
+- [phyloseq](https://joey711.github.io/phyloseq/) — OTU/ASV data management
+- [microViz](https://david-barnett.github.io/microViz/) — ordination and visualization
+- [vegan](https://vegandevs.github.io/vegan/) — PERMANOVA and diversity metrics
+- [decontam](https://github.com/benjjneb/decontam) — contaminant detection
+
+**Phylogenetic comparative methods:**
+- [ape](https://cran.r-project.org/package=ape) — phylogenetic trees and Brownian motion models
+- [nlme](https://cran.r-project.org/package=nlme) — PGLS with `corBrownian`
+- [phytools](https://github.com/liamrevell/phytools) — ancestral state reconstruction
+- [corHMM](https://github.com/thej022214/corHMM) — hidden Markov models for discrete traits
+
+**Visualization:**
+- [ggplot2](https://ggplot2.tidyverse.org/) (via tidyverse) — plotting
+- [cowplot](https://wilkelab.org/cowplot/) — multi-panel figure assembly
+- [RColorBrewer](https://cran.r-project.org/package=RColorBrewer) — color palettes
+- [ggpubr](https://cran.r-project.org/package=ggpubr), [gridExtra](https://cran.r-project.org/package=gridExtra), [smplot2](https://github.com/smin95/smplot2) — additional plot utilities
+
+**Data handling:**
+- [tidyverse](https://www.tidyverse.org/) — data wrangling
+- [vroom](https://vroom.r-lib.org/), [reshape2](https://cran.r-project.org/package=reshape2), [funrar](https://cran.r-project.org/package=funrar)
+
+### Installation
 
 ```r
 install.packages(c("tidyverse", "vegan", "ape", "nlme", "cowplot",
@@ -72,29 +92,63 @@ install.packages(c("tidyverse", "vegan", "ape", "nlme", "cowplot",
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 BiocManager::install(c("phyloseq", "decontam"))
 
-# microViz (CRAN)
+# microViz
 install.packages("microViz", repos = c(davidbarnett = "https://david-barnett.r-universe.dev",
                                         getOption("repos")))
 ```
 
 ---
 
-## Running the pipeline
+## Repository Structure
 
-Set the working directory to the repository root before knitting each script:
-
-```r
-# In RStudio: Session > Set Working Directory > To Source File Location
-# or:
-setwd("path/to/SB_Pipeline")
-rmarkdown::render("scripts/01_Decontam_and_Filtering.Rmd")
-rmarkdown::render("scripts/02_Microbiome_Analysis.Rmd")
-rmarkdown::render("scripts/03_qPCR_and_AbsAbundance.Rmd")
+```
+SB_Pipeline/
+├── README.md
+├── data/
+│   ├── raw/              # Input files — download from ENA (see Data section)
+│   └── processed/        # Intermediate outputs generated by each script
+├── figures/
+│   ├── raw/              # PDF figures produced by scripts 02 and 03
+│   └── final/            # Polished figures for publication
+└── scripts/
+    ├── 01_Decontam_and_Filtering.Rmd
+    ├── 02_Microbiome_Analysis.Rmd
+    └── 03_qPCR_and_AbsAbundance.Rmd
 ```
 
 ---
 
-## Data
+## Usage
+
+### Running the pipeline
+
+Set the working directory to the **repository root** before knitting each script:
+
+```r
+# Option 1 — from R console:
+setwd("path/to/SB_Pipeline")
+rmarkdown::render("scripts/01_Decontam_and_Filtering.Rmd")
+rmarkdown::render("scripts/02_Microbiome_Analysis.Rmd")
+rmarkdown::render("scripts/03_qPCR_and_AbsAbundance.Rmd")
+
+# Option 2 — from RStudio:
+# Open each .Rmd file and use: Session > Set Working Directory > To Project Directory
+# Then click Knit
+```
+
+### Key parameters
+
+| Parameter | Value | Script |
+|-----------|-------|--------|
+| Contaminant prevalence threshold | 0.5 | 01 |
+| Contaminant load filter | >25% | 01 |
+| 16S region | V4 | — |
+| PCA transformation | CLR (genus level) | 02 |
+| PGLS correlation structure | Brownian motion | 02, 03 |
+
+---
+
+## Input Data
 
 Raw sequencing data and input files are deposited in the **European Nucleotide Archive (ENA)** — accession number to be added upon publication.
 
@@ -103,15 +157,39 @@ Download the following files from ENA and place them in `data/raw/` before runni
 | File | Description |
 |------|-------------|
 | `OTU_table_nc.tsv` | DADA2 ASV table (16S V4, negative controls removed) |
-| `Orb_Tax_table.txt` | Taxonomy table with manual LCA corrections |
+| `Orb_Tax_table.txt` | Taxonomy table with manual LCA corrections for *Neisseriaceae* and *Orbaceae* |
 | `metadata_table.txt` | Sequencing run metadata |
 | `MappingFile_Meliponini_Claus.txt` | Collection metadata (Claus et al.) |
-| `meliponini5genes.nex` | Five-gene Meliponini phylogeny (NEXUS) |
+| `meliponini5genes.nex` | Five-gene *Meliponini* phylogeny (NEXUS format) |
 | `qPCR_All_triplicates.csv` | Raw qPCR triplicates for all samples and symbionts |
 | `qPCR_All_Triplicates_WB.csv` | qPCR triplicates (whole-body extractions) |
 
 ---
 
+## Output Data
+
+Key outputs generated by the pipeline:
+
+| File | Description | Generated by |
+|------|-------------|--------------|
+| `data/processed/phyloseqOBJ.rds` | Filtered phyloseq object | 01 |
+| `data/processed/metadata_2025.txt` | Merged metadata table | 01 |
+| `data/processed/alpha_table.rds` | Alpha diversity metrics per sample | 02 |
+| `data/processed/metadata_symbionts.rds` | Sample metadata with symbiont relative abundances | 02 |
+| `data/processed/discrete_*.rds` | Discrete trait matrices for ancestral reconstruction | 02 |
+| `data/processed/estimated_abs_abundance_bySpp.tsv` | Absolute symbiont abundance per species | 03 |
+| `data/processed/estimated_abs_abundance_byGenus.tsv` | Absolute symbiont abundance per bee genus | 03 |
+| `figures/raw/*.pdf` | All publication-ready figures | 02, 03 |
+
+---
+
+## Contributors
+
+- **Nickole Villabona** — Pipeline development and analysis
+
 ## Contact
 
-Nickole Villabona — nvillabo@uci.edu — University of California, Irvine
+For questions or issues, please open an issue on this repository or contact:
+- Nickole Villabona: [nvillabo@uci.edu](mailto:nvillabo@uci.edu) — University of California, Irvine
+
+---

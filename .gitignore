@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# R
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+
+# knitr cache and intermediate files
+*_cache/
+*_files/
+
+# Rendered HTML outputs (regenerate by knitting)
+scripts/*.html
+
+# Personal screenshots
+figures/pgls/
+
+# R environment
+renv/library/
+renv/.cache/

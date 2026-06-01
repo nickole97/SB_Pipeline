@@ -1,0 +1,629 @@
+---
+title: "03 - qPCR Analysis and Estimated Absolute Abundance"
+author: "Nickole Villabona"
+date: "2025"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: united
+    code_folding: hide
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+# Set working directory to project root so relative paths work when knitting from RStudio
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+
+library(vroom)
+library(tidyverse)
+library(funrar)
+library(phyloseq)
+library(microViz)
+library(ape)
+library(phytools)
+library(nlme)
+library(cowplot)
+library(gridExtra)
+library(smplot2)
+
+`%notin%` <- function(x, y) !(x %in% y)
+
+# ── File paths ───────────────────────────────────────────────────────────────
+path_raw  <- "data/raw/"
+path_proc <- "data/processed/"
+
+dir.create("figures/raw", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## Overview
+
+This script processes quantitative PCR (qPCR) data measuring total bacterial load per
+bee abdomen, and combines it with 16S rRNA relative abundance data to estimate
+per-taxon absolute abundances for four focal gut symbionts (*Snodgrassella*,
+*Gilliamella*, *Lactobacillus*, *Commensalibacter*). Phylogenetic comparative methods
+(PGLS, phyloANOVA) are applied to test associations between symbiont absolute
+abundance and host colony size.
+
+**Inputs (from `data/processed/`):**
+- `phyloseqOBJ.rds` — rarefied and filtered phyloseq object
+- `metadata_symbionts.rds` — symbiont prevalence merged with metadata
+- `pruned_tree.rds` — ultrametric tree pruned to study species
+- `discrete_Sng.rds` — binary Snodgrassella presence/absence
+- `discrete_Gill.rds` — binary Gilliamella presence/absence
+- `unique_all_avg.rds` — species-averaged symbiont data
+- `muestras_a_eliminar.rds` — samples removed due to high contaminant load
+
+**Inputs (from `data/raw/`):**
+- `qPCR_All_Triplicates_WB.csv` — raw qPCR triplicates
+- `metadata_table_updated.tsv` — updated sample metadata
+
+**Outputs (to `data/processed/`):**
+- `qpcr_filtered.rds` — processed qPCR data (sample level)
+- `estimated_abs_abundance_bySpp.tsv` — estimated absolute abundance per species
+- `estimated_abs_abundance_byGenus.tsv` — estimated absolute abundance per bee genus
+
+---
+
+# 1. Load Outputs from Previous Scripts
+
+```{r load-processed-data}
+phyloseqOBJ        <- readRDS(paste0(path_proc, "phyloseqOBJ.rds"))
+metadata_symbionts <- readRDS(paste0(path_proc, "metadata_symbionts.rds"))
+pruned_tree        <- readRDS(paste0(path_proc, "pruned_tree.rds"))
+discrete_Sng       <- readRDS(paste0(path_proc, "discrete_Sng.rds"))
+discrete_Gill      <- readRDS(paste0(path_proc, "discrete_Gill.rds"))
+unique_all_avg     <- readRDS(paste0(path_proc, "unique_all_avg.rds"))
+muestras_a_eliminar <- readRDS(paste0(path_proc, "muestras_a_eliminar.rds"))
+
+cat("All processed objects loaded successfully.\n")
+```
+
+---
+
+# 2. qPCR Data Processing
+
+## 2.1 Load and average triplicates
+
+Each sample was run in triplicate. Here we average the three measurements and compute
+copies per bee abdomen, accounting for the elution volume (20 µL) and the fraction of
+homogenate extracted (400/750 µL).
+
+```{r load-qpcr}
+qPCR_Raw <- vroom(paste0(path_raw, "qPCR_All_Triplicates_WB.csv"), delim = ";") %>%
+  mutate(Mean_Conc = as.numeric(gsub(",", ".", Mean_Conc)))
+
+# Average triplicates and compute copies per bee abdomen
+qPCR_Mean <- qPCR_Raw %>%
+  mutate(SampleID = as.factor(SampleID)) %>%
+  group_by(SampleID) %>%
+  dplyr::summarise(Mean_Conc = mean(Mean_Conc, na.rm = TRUE)) %>%
+  mutate(copies_perbee = Mean_Conc * 20 * (1 / (400 / 750)))
+
+# Remove samples with very low DNA identified during library preparation
+samples_to_remove_qpcr <- c("M001", "M013", "M025", "M037", "M049", "M06",
+                             "M072", "M083", "M002", "M014", "M026", "M038",
+                             "M050", "M062", "M073", "M084")
+
+qpcr_filtered <- qPCR_Mean %>%
+  filter(!SampleID %in% samples_to_remove_qpcr) %>%
+  mutate(SampleID = as.character(SampleID))
+
+cat("qPCR samples after filtering:", nrow(qpcr_filtered), "\n")
+```
+
+## 2.2 Merge with metadata
+
+```{r merge-metadata}
+metadata_raw <- vroom(paste0(path_raw, "metadata_table_updated.tsv")) %>%
+  mutate(SampleID     = as.character(SampleID),
+         CollectionID = as.character(CollectionID)) %>%
+  distinct(SampleID, .keep_all = TRUE)
+
+qpcr_merged <- qpcr_filtered %>%
+  left_join(metadata_raw, by = "SampleID")
+
+saveRDS(qpcr_filtered, file = paste0(path_proc, "qpcr_filtered.rds"))
+```
+
+## 2.3 Apply decontam sample quality flag
+
+Samples identified in Script 01 as having >25% contaminant sequences are flagged here
+for visualization. These samples are expected to have lower bacterial loads.
+
+```{r decontam-flag}
+qpcr_decontam <- qpcr_merged %>%
+  mutate(
+    SampleQuality = if_else(SampleID %in% muestras_a_eliminar, FALSE, TRUE),
+    SampleType    = if_else(SampleID %in% c("MP1ExBl", "MP2ExBl"), "Blank", "Sample")
+  )
+
+blank_mean <- qpcr_decontam %>%
+  filter(SampleType == "Blank") %>%
+  summarise(mean_blank = mean(Mean_Conc, na.rm = TRUE)) %>%
+  pull(mean_blank)
+```
+
+## 2.4 Visualize qPCR quality
+
+Samples with high contaminant loads (FALSE) consistently show lower bacterial copy
+numbers, often approaching extraction blank levels, validating the decontam filter.
+
+```{r qpcr-quality-plot, fig.width=7, fig.height=6}
+qpcr_decontam_plot <- ggplot(qpcr_decontam,
+       aes(x = factor(SampleQuality), y = copies_perbee,
+           fill = SampleQuality, color = SampleQuality)) +
+  sm_raincloud(
+    violin.params  = list(alpha = 0.7, width = 0.6),
+    boxplot.params = list(width = 0.2, outlier.shape = NA, alpha = 0.7),
+    point.params   = list(size = 3, alpha = 0.8)
+  ) +
+  geom_hline(yintercept = blank_mean, linetype = "dashed",
+             colour = "blue", linewidth = 0.3) +
+  annotate("text", x = Inf, y = blank_mean, label = "Blanks mean",
+           hjust = 1.05, vjust = -0.4, size = 4) +
+  scale_y_log10() +
+  scale_fill_manual(values  = sm_color("lightpurple", "green")) +
+  scale_color_manual(values = sm_color("lightpurple", "green")) +
+  labs(x = "Sample Quality", y = "16S rRNA gene copies",
+       title = "qPCR: Decontam filter") +
+  theme_minimal(base_size = 14)
+
+qpcr_decontam_plot
+ggsave("figures/raw/qPCR_decontam_filter.pdf", width = 7, height = 6)
+```
+
+---
+
+# 3. Extract Symbiont Relative Abundances
+
+```{r extract-rel-abundances}
+# Aggregate phyloseq to genus level
+ps.genus <- phyloseqOBJ %>% tax_agg(rank = "Genus")
+
+Prevalence_Genus <- as.data.frame(make_relative(t(ps.genus@otu_table)))
+
+# Extract four focal symbionts at genus level
+Prev_Snodgrassella    <- Prevalence_Genus %>% select(Snodgrassella)    %>% rownames_to_column("SampleID")
+Prev_Gilliamella      <- Prevalence_Genus %>% select(Gilliamella)      %>% rownames_to_column("SampleID")
+Prev_Lactobacillus    <- Prevalence_Genus %>% select(Lactobacillus)    %>% rownames_to_column("SampleID")
+Prev_Commensalibacter <- Prevalence_Genus %>% select(Commensalibacter) %>% rownames_to_column("SampleID")
+
+Prev_Snod_Gill <- Prev_Snodgrassella %>%
+  left_join(Prev_Gilliamella,      by = "SampleID") %>%
+  left_join(Prev_Lactobacillus,    by = "SampleID") %>%
+  left_join(Prev_Commensalibacter, by = "SampleID")
+
+cat("Relative abundance table — first rows:\n")
+head(Prev_Snod_Gill)
+```
+
+---
+
+# 4. Estimated Absolute Abundance
+
+The estimated per-taxon absolute abundance is computed by multiplying the relative
+proportion of each symbiont by the total 16S rRNA gene copies per bee (from qPCR).
+This approach provides a rough estimate of absolute symbiont abundance while
+accounting for differences in total bacterial load across species.
+
+```{r estimated-absolute-abundance}
+# Join relative abundances with qPCR total copies at the sample level
+estimated_abs <- Prev_Snod_Gill %>%
+  left_join(qpcr_filtered[, c("SampleID", "copies_perbee")], by = "SampleID") %>%
+  mutate(
+    Snod_abs_estimated  = Snodgrassella    * copies_perbee,
+    Gill_abs_estimated  = Gilliamella      * copies_perbee,
+    Lacto_abs_estimated = Lactobacillus    * copies_perbee,
+    Comm_abs_estimated  = Commensalibacter * copies_perbee
+  )
+
+cat("Samples with both 16S and qPCR data:",
+    sum(!is.na(estimated_abs$copies_perbee)), "\n")
+cat("Samples missing qPCR data:",
+    sum(is.na(estimated_abs$copies_perbee)), "\n")
+
+head(estimated_abs)
+```
+
+## 4.1 Average estimated absolute abundances by species
+
+Estimated absolute abundances are averaged per voucher (species) to align with the
+phylogenetic tree for comparative analyses.
+
+```{r average-by-species}
+# Build VoucherNumber mapping from tree tips
+df_tree_ult1 <- data.frame(VoucherNumber = pruned_tree$tip.label) %>%
+  mutate(CollectionID = str_extract(VoucherNumber, "\\d+"))
+
+# Merge estimated abundances with metadata and voucher mapping
+metadata_est <- metadata_symbionts %>%
+  select(SampleID, CollectionID, Genus, Species,
+         ColonySize_U, BodySize) %>%
+  distinct()
+
+estimated_abs_full <- estimated_abs %>%
+  left_join(metadata_est %>%
+              mutate(CollectionID = as.character(CollectionID)),
+            by = "SampleID") %>%
+  left_join(df_tree_ult1, by = "CollectionID") %>%
+  filter(!is.na(VoucherNumber))
+
+# Average per VoucherNumber (species level)
+estimated_abs_bySpp <- estimated_abs_full %>%
+  group_by(VoucherNumber) %>%
+  dplyr::summarise(
+    Snod_abs_mean      = mean(Snod_abs_estimated,  na.rm = TRUE),
+    Gill_abs_mean      = mean(Gill_abs_estimated,  na.rm = TRUE),
+    Lacto_abs_mean     = mean(Lacto_abs_estimated, na.rm = TRUE),
+    Comm_abs_mean      = mean(Comm_abs_estimated,  na.rm = TRUE),
+    Snod_rel_mean      = mean(Snodgrassella,        na.rm = TRUE),
+    Gill_rel_mean      = mean(Gilliamella,           na.rm = TRUE),
+    Lacto_rel_mean     = mean(Lactobacillus,         na.rm = TRUE),
+    Comm_rel_mean      = mean(Commensalibacter,      na.rm = TRUE),
+    copies_perbee_mean = mean(copies_perbee,         na.rm = TRUE),
+    copies_perbee_sem  = sd(copies_perbee,           na.rm = TRUE),
+    ColonySize_U_mean  = mean(ColonySize_U,          na.rm = TRUE),
+    BodySize_mean      = mean(BodySize,               na.rm = TRUE),
+    Bee_Genus          = first(Genus),
+    n_samples          = n(),
+    .groups = "drop"
+  ) %>%
+  as.data.frame()
+
+rownames(estimated_abs_bySpp) <- estimated_abs_bySpp$VoucherNumber
+
+cat("Species with estimated absolute abundances:", nrow(estimated_abs_bySpp), "\n")
+
+# Export
+write.table(estimated_abs_bySpp,
+            file      = paste0(path_proc, "estimated_abs_abundance_bySpp.tsv"),
+            sep       = "\t", row.names = FALSE, quote = FALSE)
+```
+
+---
+
+# 5. Visualizations
+
+## 5.1 Barplots: estimated absolute abundance by bee genus
+
+```{r barplots-by-genus, fig.width=14, fig.height=6}
+symbiont_colors <- c("Snodgrassella"    = "#e54b4b",
+                     "Gilliamella"      = "#2b9dce",
+                     "Lactobacillus"    = "#6ab187",
+                     "Commensalibacter" = "#f0a500")
+
+plot_genus_df <- estimated_abs_bySpp %>%
+  filter(!is.na(Bee_Genus)) %>%
+  group_by(Bee_Genus) %>%
+  dplyr::summarise(
+    Snod_mean  = mean(Snod_abs_mean,  na.rm = TRUE),
+    Gill_mean  = mean(Gill_abs_mean,  na.rm = TRUE),
+    Lacto_mean = mean(Lacto_abs_mean, na.rm = TRUE),
+    Comm_mean  = mean(Comm_abs_mean,  na.rm = TRUE),
+    Snod_se    = sd(Snod_abs_mean,  na.rm = TRUE) / sqrt(n()),
+    Gill_se    = sd(Gill_abs_mean,  na.rm = TRUE) / sqrt(n()),
+    Lacto_se   = sd(Lacto_abs_mean, na.rm = TRUE) / sqrt(n()),
+    Comm_se    = sd(Comm_abs_mean,  na.rm = TRUE) / sqrt(n()),
+    n          = n(), .groups = "drop"
+  ) %>%
+  pivot_longer(
+    cols      = c(Snod_mean, Gill_mean, Lacto_mean, Comm_mean),
+    names_to  = "Symbiont",
+    values_to = "AbsAbundance"
+  ) %>%
+  mutate(
+    SE = case_when(
+      Symbiont == "Snod_mean"  ~ Snod_se,
+      Symbiont == "Gill_mean"  ~ Gill_se,
+      Symbiont == "Lacto_mean" ~ Lacto_se,
+      Symbiont == "Comm_mean"  ~ Comm_se
+    ),
+    Symbiont = case_when(
+      Symbiont == "Snod_mean"  ~ "Snodgrassella",
+      Symbiont == "Gill_mean"  ~ "Gilliamella",
+      Symbiont == "Lacto_mean" ~ "Lactobacillus",
+      Symbiont == "Comm_mean"  ~ "Commensalibacter"
+    )
+  )
+
+genus_order <- plot_genus_df %>%
+  filter(Symbiont == "Snodgrassella") %>%
+  arrange(desc(AbsAbundance)) %>%
+  pull(Bee_Genus)
+
+plot_genus_df$Bee_Genus <- factor(plot_genus_df$Bee_Genus, levels = genus_order)
+plot_genus_df$Symbiont  <- factor(plot_genus_df$Symbiont,
+                                   levels = names(symbiont_colors))
+
+ggplot(plot_genus_df, aes(x = Bee_Genus, y = AbsAbundance, fill = Symbiont)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8),
+           width = 0.7, alpha = 0.85) +
+  geom_errorbar(aes(ymin = AbsAbundance - SE, ymax = AbsAbundance + SE),
+                position = position_dodge(width = 0.8),
+                width = 0.25, color = "grey40") +
+  scale_fill_manual(values = symbiont_colors,
+                    labels = ~ parse(text = paste0("italic('", ., "')"))) +
+  scale_y_continuous(trans = "log1p", labels = scales::label_scientific()) +
+  labs(x = "Bee Genus", y = "Estimated copies per bee (log scale)", fill = NULL) +
+  theme_bw(base_size = 12) +
+  theme(axis.text.x       = element_text(angle = 45, hjust = 1, face = "italic"),
+        panel.grid.major.x = element_blank(),
+        panel.border       = element_blank(),
+        axis.line          = element_line(colour = "black"),
+        legend.position    = "top",
+        legend.text        = element_text(face = "italic"))
+
+ggsave("figures/raw/barplot_absAbundance_byGenus.pdf", width = 14, height = 6)
+
+write.table(plot_genus_df,
+            file = paste0(path_proc, "estimated_abs_abundance_byGenus.tsv"),
+            sep = "\t", row.names = FALSE, quote = FALSE)
+```
+
+## 5.2 Boxplots: estimated absolute abundance by bee genus
+
+```{r boxplots-by-genus, fig.width=14, fig.height=8}
+symbiont_colors <- c("Snodgrassella"    = "#e54b4b",
+                     "Gilliamella"      = "#2b9dce",
+                     "Lactobacillus"    = "#6ab187",
+                     "Commensalibacter" = "#f0a500")
+
+# Species-level data in long format (one row per species per symbiont)
+box_df <- estimated_abs_bySpp %>%
+  filter(!is.na(Bee_Genus)) %>%
+  pivot_longer(cols      = c(Snod_abs_mean, Gill_abs_mean,
+                              Lacto_abs_mean, Comm_abs_mean),
+               names_to  = "Symbiont",
+               values_to = "AbsAbundance") %>%
+  mutate(Symbiont = recode(Symbiont,
+           "Snod_abs_mean"  = "Snodgrassella",
+           "Gill_abs_mean"  = "Gilliamella",
+           "Lacto_abs_mean" = "Lactobacillus",
+           "Comm_abs_mean"  = "Commensalibacter"),
+         Symbiont = factor(Symbiont, levels = names(symbiont_colors)))
+
+# Order bee genera by median Snodgrassella absolute abundance
+genus_order_box <- box_df %>%
+  filter(Symbiont == "Snodgrassella") %>%
+  group_by(Bee_Genus) %>%
+  summarise(med = median(AbsAbundance, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(med)) %>%
+  pull(Bee_Genus)
+
+box_df$Bee_Genus <- factor(box_df$Bee_Genus, levels = genus_order_box)
+
+ggplot(box_df, aes(x = Bee_Genus, y = pmax(AbsAbundance, 1e-04),
+                    fill = Symbiont, color = Symbiont)) +
+  geom_boxplot(alpha = 0.35, outlier.shape = NA, width = 0.6) +
+  geom_jitter(width = 0.15, size = 0.7, alpha = 0.5) +
+  scale_y_log10(labels = scales::label_scientific()) +
+  scale_fill_manual(values  = symbiont_colors) +
+  scale_color_manual(values = symbiont_colors) +
+  facet_wrap(~ Symbiont, nrow = 2, scales = "free_y") +
+  labs(x = NULL, y = "Estimated copies/bee (log scale)") +
+  theme_bw(base_size = 11) +
+  theme(axis.text.x      = element_text(angle = 45, hjust = 1, face = "italic"),
+        panel.grid.minor = element_blank(),
+        strip.text       = element_text(face = "italic"),
+        legend.position  = "none")
+
+ggsave("figures/raw/boxplot_absAbundance_byGenus_panels.pdf", width = 14, height = 8)
+```
+
+---
+
+# 6. Boxplots: Bacterial Load vs. Symbiont Presence/Absence
+
+```{r qpcr-presence-plots, fig.width=8, fig.height=4}
+# Merge qPCR species averages with symbiont presence/absence
+qpcr_merged_bySpp <- estimated_abs_bySpp %>%
+  select(VoucherNumber, copies_perbee_mean, copies_perbee_sem,
+         ColonySize_U_mean, BodySize_mean, Bee_Genus)
+
+qpcr_bySpp_Snod_Gill <- qpcr_merged_bySpp %>%
+  left_join(discrete_Sng, by = "VoucherNumber") %>%
+  left_join(discrete_Gill, by = "VoucherNumber") %>%
+  mutate(
+    Snodgrassella_pre = factor(Discrete_Snodgrassella,
+                               levels = c(0, 1), labels = c("abs", "pres")),
+    Gilliamella_pre   = factor(Discrete_Gilliamella,
+                               levels = c(0, 1), labels = c("abs", "pres"))
+  )
+
+plot_snod <- ggplot(qpcr_bySpp_Snod_Gill,
+                    aes(x = Snodgrassella_pre, y = log10(copies_perbee_mean))) +
+  geom_boxplot(aes(fill = Snodgrassella_pre), colour = "grey40",
+               width = 0.6, outlier.shape = NA, alpha = 0.5) +
+  geom_jitter(aes(color = Snodgrassella_pre), width = 0.1, size = 2.3, alpha = 0.8) +
+  scale_fill_manual(values  = c("abs" = "white",  "pres" = "#f4a3a3")) +
+  scale_color_manual(values = c("abs" = "grey60", "pres" = "#e54b4b")) +
+  labs(x = expression(italic("Snodgrassella") ~ "presence"),
+       y = "16S rRNA gene copies (log10)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+
+plot_gill <- ggplot(qpcr_bySpp_Snod_Gill,
+                    aes(x = Gilliamella_pre, y = log10(copies_perbee_mean))) +
+  geom_boxplot(aes(fill = Gilliamella_pre), colour = "grey40",
+               width = 0.6, outlier.shape = NA, alpha = 0.5) +
+  geom_jitter(aes(color = Gilliamella_pre), width = 0.1, size = 2.3, alpha = 0.8) +
+  scale_fill_manual(values  = c("abs" = "white",  "pres" = "#a9d2f3")) +
+  scale_color_manual(values = c("abs" = "grey60", "pres" = "#2b9dce")) +
+  labs(x = expression(italic("Gilliamella") ~ "presence"),
+       y = "16S rRNA gene copies (log10)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+
+cowplot::plot_grid(plot_snod, plot_gill, labels = c("A", "B"),
+                   nrow = 1, align = "h")
+ggsave("figures/raw/qPCR_symbiont_presence.pdf", width = 8, height = 4)
+```
+
+---
+
+# 7. Phylogenetic ANOVA: Bacterial Load vs. Symbiont Presence
+
+```{r qpcr-phylo-anova}
+# Prepare species-level table
+df_qpcr <- qpcr_merged_bySpp[, c("VoucherNumber", "copies_perbee_mean")] %>%
+  mutate(log10_load = log10(copies_perbee_mean))
+rownames(df_qpcr) <- df_qpcr$VoucherNumber
+
+# Merge with presence/absence data
+pres_tbl <- qpcr_bySpp_Snod_Gill[, c("VoucherNumber",
+                                       "Snodgrassella_pre", "Gilliamella_pre")]
+rownames(pres_tbl) <- pres_tbl$VoucherNumber
+
+dat_pa <- cbind(
+  df_qpcr[rownames(pres_tbl), "log10_load", drop = FALSE],
+  pres_tbl[, c("Snodgrassella_pre", "Gilliamella_pre")]
+)
+
+# Drop species with missing qPCR data, then align with tree
+dat_pa <- dat_pa[!is.na(dat_pa$log10_load), ]
+
+common_pa <- intersect(pruned_tree$tip.label, rownames(dat_pa))
+tree_pa   <- drop.tip(pruned_tree, setdiff(pruned_tree$tip.label, common_pa))
+dat_pa    <- dat_pa[tree_pa$tip.label, ]
+
+cat("Species in phylo-ANOVA:", nrow(dat_pa), "\n")
+
+y_load <- setNames(dat_pa$log10_load,         rownames(dat_pa))
+x_snod <- setNames(dat_pa$Snodgrassella_pre,  rownames(dat_pa))
+x_gill <- setNames(dat_pa$Gilliamella_pre,    rownames(dat_pa))
+
+res_snod_qpcr <- phylANOVA(tree_pa, x = x_snod, y = y_load, nsim = 1000)
+res_gill_qpcr <- phylANOVA(tree_pa, x = x_gill, y = y_load, nsim = 1000)
+
+cat(sprintf("Snodgrassella: F = %.2f, p = %.3f\n",
+            unname(res_snod_qpcr$F), unname(res_snod_qpcr$Pf)))
+cat(sprintf("Gilliamella:   F = %.2f, p = %.3f\n",
+            unname(res_gill_qpcr$F), unname(res_gill_qpcr$Pf)))
+```
+
+---
+
+# 8. PGLS: Estimated Absolute Abundance vs. Colony Size
+
+```{r pgls-setup}
+# Align data with tree
+common_pgls      <- intersect(pruned_tree$tip.label,
+                               estimated_abs_bySpp$VoucherNumber)
+pruned_tree_pgls <- drop.tip(pruned_tree,
+                              setdiff(pruned_tree$tip.label, common_pgls))
+
+pgls_df <- estimated_abs_bySpp[common_pgls, ] %>%
+  mutate(
+    Snod_abs_log   = log(Snod_abs_mean   + 1),
+    Gill_abs_log   = log(Gill_abs_mean   + 1),
+    Lacto_abs_log  = log(Lacto_abs_mean  + 1),
+    Comm_abs_log   = log(Comm_abs_mean   + 1),
+    ColonySize_log = log(ColonySize_U_mean + 1)
+  ) %>%
+  filter(!is.na(ColonySize_log), !is.na(VoucherNumber),
+         !is.na(Snod_abs_log), !is.na(Gill_abs_log),
+         !is.na(Lacto_abs_log), !is.na(Comm_abs_log))
+
+# Re-prune tree to match cleaned data
+pruned_tree_pgls <- drop.tip(pruned_tree_pgls,
+                              setdiff(pruned_tree_pgls$tip.label,
+                                      pgls_df$VoucherNumber))
+pgls_df <- pgls_df[pruned_tree_pgls$tip.label, ]
+
+cat("Rows in PGLS table:", nrow(pgls_df), "\n")
+cat("Tips in tree:", length(pruned_tree_pgls$tip.label), "\n")
+
+spp   <- pgls_df$VoucherNumber
+corBM <- corBrownian(phy = pruned_tree_pgls, form = ~spp)
+```
+
+```{r pgls-models}
+pgls_Snod_abs_CS  <- gls(Snod_abs_log  ~ ColonySize_log, data = pgls_df, correlation = corBM)
+pgls_Gill_abs_CS  <- gls(Gill_abs_log  ~ ColonySize_log, data = pgls_df, correlation = corBM)
+pgls_Lacto_abs_CS <- gls(Lacto_abs_log ~ ColonySize_log, data = pgls_df, correlation = corBM)
+pgls_Comm_abs_CS  <- gls(Comm_abs_log  ~ ColonySize_log, data = pgls_df, correlation = corBM)
+
+cat("=== PGLS: estimated absolute abundance vs. Colony Size ===\n")
+for (lst in list(
+  list(pgls_Snod_abs_CS,  "Snodgrassella"),
+  list(pgls_Gill_abs_CS,  "Gilliamella"),
+  list(pgls_Lacto_abs_CS, "Lactobacillus"),
+  list(pgls_Comm_abs_CS,  "Commensalibacter")
+)) {
+  cat(sprintf("%-20s p = %.4f  slope = %+.3f\n",
+              lst[[2]], summary(lst[[1]])$tTable[2, 4], summary(lst[[1]])$tTable[2, 1]))
+}
+```
+
+## 8.1 Visualize PGLS results
+
+```{r pgls-plots, fig.width=10, fig.height=10}
+# Common axis limits across all four panels for direct comparability
+x_lims_pgls <- range(pgls_df$ColonySize_U_mean, na.rm = TRUE) * c(0.5, 2)
+y_vals_pgls  <- c(pmax(pgls_df$Snod_abs_mean,  1e-04),
+                  pmax(pgls_df$Gill_abs_mean,  1e-04),
+                  pmax(pgls_df$Lacto_abs_mean, 1e-04),
+                  pmax(pgls_df$Comm_abs_mean,  1e-04))
+y_lims_pgls  <- range(y_vals_pgls, na.rm = TRUE) * c(0.5, 2)
+
+make_pgls_plot <- function(mdl, y_col, fill_col, label) {
+  p_val  <- summary(mdl)$tTable[2, 4]
+  sub_df <- pgls_df[pgls_df[[y_col]] > 1e-03, ]
+  r2     <- summary(lm(log(sub_df[[y_col]]) ~ log(sub_df$ColonySize_U_mean)))$r.squared
+  ggplot(pgls_df, aes(x = ColonySize_U_mean, y = pmax(.data[[y_col]], 1e-04))) +
+    geom_point(shape = 21, fill = fill_col, size = 3, alpha = 0.8) +
+    geom_smooth(method = "lm", se = FALSE, color = "grey", linetype = "dashed") +
+    scale_x_log10(limits = x_lims_pgls) +
+    scale_y_log10(limits = y_lims_pgls) +
+    annotation_logticks() +
+    annotate("text", x = Inf, y = Inf,
+             label = paste0("R² = ", round(r2, 2), "\nPGLS p = ", signif(p_val, 3)),
+             hjust = 1.1, vjust = 1.5, size = 3.5, fontface = "italic") +
+    labs(x = "Colony Size",
+         y = bquote(italic(.(label)) ~ "estimated copies/bee")) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank(), panel.border = element_blank(),
+          axis.line = element_line(colour = "black"),
+          aspect.ratio = 1)
+}
+
+p1 <- make_pgls_plot(pgls_Snod_abs_CS,  "Snod_abs_mean",  "#e54b4b", "Snodgrassella")
+p2 <- make_pgls_plot(pgls_Gill_abs_CS,  "Gill_abs_mean",  "#2b9dce", "Gilliamella")
+p3 <- make_pgls_plot(pgls_Lacto_abs_CS, "Lacto_abs_mean", "#6ab187", "Lactobacillus")
+p4 <- make_pgls_plot(pgls_Comm_abs_CS,  "Comm_abs_mean",  "#f0a500", "Commensalibacter")
+
+cowplot::plot_grid(p1, p2, p3, p4, labels = c("A", "B", "C", "D"), nrow = 2)
+ggsave("figures/raw/PGLS_absAbundance_colonySize.pdf", width = 10, height = 10)
+```
+
+---
+
+# 9. Summary of Outputs
+
+```{r summary}
+cat("============================================\n")
+cat("Files exported to data/processed/:\n")
+cat("  - qpcr_filtered.rds\n")
+cat("  - estimated_abs_abundance_bySpp.tsv\n")
+cat("  - estimated_abs_abundance_byGenus.tsv\n")
+cat("Figures exported to figures/raw/:\n")
+cat("  - qPCR_decontam_filter.pdf\n")
+cat("  - qPCR_symbiont_presence.pdf\n")
+cat("  - barplot_absAbundance_byGenus.pdf\n")
+cat("  - barplot_absAbundance_byGenus_panels.pdf\n")
+cat("  - PGLS_absAbundance_colonySize.pdf\n")
+cat("============================================\n")
+```
+
+---
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```

@@ -1,0 +1,188 @@
+CollectionID	sample	Box	PrepDate	BodySize	ColonySize_L	ColonySize_U	ColonySize	Sample_or_Control	Genus	Species	Number_Bees	Country	Area	Preservation	Continent	Region
+1	M162	14	8/11/23	5.67	5383	29000	XLarge	True_Sample	Tetragona	clavipes	4	Peru	San Martin, Juan Guerrera	Ethanol/Pinned	South_America	Neotropics
+6	M165	15	8/11/23	4.321	NA	1900	Medium	True_Sample	Oxytrigona	obscura	5	Peru	San Martin, Cumbaza	Ethanol/Pinned	South_America	Neotropics
+6	M166	15	8/11/23	4.321	NA	1900	Medium	True_Sample	Oxytrigona	obscura	5	Peru	San Martin, Cumbaza	Ethanol/Pinned	South_America	Neotropics
+6	M167	15	8/11/23	4.321	NA	1900	Medium	True_Sample	Oxytrigona	obscura	5	Peru	San Martin, Cumbaza	Ethanol/Pinned	South_America	Neotropics
+6	M168	15	8/11/23	4.321	NA	1900	Medium	True_Sample	Oxytrigona	obscura	5	Peru	San Martin, Cumbaza	Ethanol/Pinned	South_America	Neotropics
+6	M169	15	8/11/23	4.321	NA	1900	Medium	True_Sample	Oxytrigona	obscura	5	Peru	San Martin, Cumbaza	Ethanol/Pinned	South_America	Neotropics
+9	M150	13	8/11/23	3.809	387	450	Small	True_Sample	Scaura	latitarsis	5	Peru	San Martin, Tarapoto	Ethanol/Pinned	South_America	Neotropics
+9	M151	13	8/11/23	3.809	387	450	Small	True_Sample	Scaura	latitarsis	5	Peru	San Martin, Tarapoto	Ethanol/Pinned	South_America	Neotropics
+40	M180	15	8/11/23	5.636	2000	7000	Large	True_Sample	Lestrimelitta	limao	5	Peru	San Martin, Nuevo Progreso	Ethanol/Pinned	South_America	Neotropics
+52	M097	7	6/11/23	9.374	NA	3000	Large	True_Sample	Trigona	amalthea	2	Peru	San Martin, Moyobamba	Ethanol/Pinned	South_America	Neotropics
+56	M164	14	8/11/23	5.437	5383	29000	XLarge	True_Sample	Tetragona	clavipes	5	Peru	San Martin, Moyobamba	Ethanol/Pinned	South_America	Neotropics
+58	M118	8	8/11/23	5.865	400	8000	Large	True_Sample	Trigona	cilipes	1	Peru	San Martin, Tarapoto	Ethanol/Pinned	South_America	Neotropics
+84	M163	14	8/11/23	6.106	5383	29000	XLarge	True_Sample	Tetragona	clavipes	2	Peru	San Martin, Tarapoto	Ethanol/Pinned	South_America	Neotropics
+86	M137	10	8/11/23	3.147	200	900	Small	True_Sample	Plebeia	minima	1	Peru	San Martin, Shilcayo	Ethanol/Pinned	South_America	Neotropics
+89	M149	13	8/11/23	3.586	387	450	Small	True_Sample	Scaura	latitarsis	2	Peru	San Martin, Tarapoto	Ethanol/Pinned	South_America	Neotropics
+89	M148	13	8/11/23	3.586	387	450	Small	True_Sample	Scaura	latitarsis	2	Peru	San Martin, Tarapoto	Ethanol/Pinned	South_America	Neotropics
+112	M170	15	8/11/23	5.045	700	3000	Large	True_Sample	Nannotrigona	perilampoides	1	Costa Rica	Guanacaste	Ethanol	N_C_America	Neotropics
+114	M178	15	8/11/23	4.957	NA	5442	Large	True_Sample	Oxytrigona	mellicolor	5	Costa Rica	Guanacaste	Ethanol/Pinned	N_C_America	Neotropics
+114	M175	15	8/11/23	4.957	NA	5442	Large	True_Sample	Oxytrigona	mellicolor	5	Costa Rica	Guanacaste	Ethanol/Pinned	N_C_America	Neotropics
+114	M176	15	8/11/23	4.957	NA	5442	Large	True_Sample	Oxytrigona	mellicolor	5	Costa Rica	Guanacaste	Ethanol/Pinned	N_C_America	Neotropics
+114	M179	15	8/11/23	4.957	NA	5442	Large	True_Sample	Oxytrigona	mellicolor	5	Costa Rica	Guanacaste	Ethanol/Pinned	N_C_America	Neotropics
+114	M177	15	8/11/23	4.957	NA	5442	Large	True_Sample	Oxytrigona	mellicolor	5	Costa Rica	Guanacaste	Ethanol/Pinned	N_C_America	Neotropics
+119	M181	15	8/11/23	6.041	2000	7000	Large	True_Sample	Lestrimelitta	limao	5	Peru	Madre de Dios, Tambopata	Ethanol	South_America	Neotropics
+119	M182	15	8/11/23	6.041	2000	7000	Large	True_Sample	Lestrimelitta	limao	5	Peru	Madre de Dios, Tambopata	Ethanol	South_America	Neotropics
+120	M124	9	8/11/23	8.673	300	1000	Medium	True_Sample	Melikerria	fasciculata	2	Brazil	Sao Paulo, Ribeiro Preto	Ethanol	South_America	Neotropics
+120	M125	9	8/11/23	8.673	300	1000	Medium	True_Sample	Melikerria	fasciculata	2	Brazil	Sao Paulo, Ribeiro Preto	Ethanol	South_America	Neotropics
+121	M126	9	8/11/23	12.367	1000	2000	Medium	True_Sample	Michmelia	scutellaris	3	Brazil	Minas Gerais, Uberlandia	Ethanol	South_America	Neotropics
+121	M127	9	8/11/23	12.367	1000	2000	Medium	True_Sample	Michmelia	scutellaris	3	Brazil	Minas Gerais, Uberlandia	Ethanol	South_America	Neotropics
+121	M128	9	8/11/23	12.367	1000	2000	Medium	True_Sample	Michmelia	scutellaris	3	Brazil	Minas Gerais, Uberlandia	Ethanol	South_America	Neotropics
+123	M135	9	8/11/23	11.234	1000	3000	Large	True_Sample	Michmelia	seminigra	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+123	M132	9	8/11/23	11.234	1000	3000	Large	True_Sample	Michmelia	seminigra	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+123	M133	9	8/11/23	11.234	1000	3000	Large	True_Sample	Michmelia	seminigra	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+123	M134	9	8/11/23	11.234	1000	3000	Large	True_Sample	Michmelia	seminigra	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+123	M136	9	8/11/23	11.234	1000	3000	Large	True_Sample	Michmelia	seminigra	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+132	M158	14	8/11/23	3.833	300	8000	Large	True_Sample	Tetragonisca	angustula	5	Peru	Junin, San Ramon	Ethanol/Pinned	South_America	Neotropics
+134	M159	14	8/11/23	3.893	300	8000	Large	True_Sample	Tetragonisca	angustula	5	Costa Rica	Guarapita	Ethanol	N_C_America	Neotropics
+135	M157	14	8/11/23	4.725	2000	3000	Large	True_Sample	Tetragonisca	weyrauchi	1	Peru	Madre de Dios, TPL	Ethanol (unique specimen)	South_America	Neotropics
+136	M153	14	8/11/23	4.268	2000	3000	Large	True_Sample	Tetragonisca	weyrauchi	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+136	M154	14	8/11/23	4.268	2000	3000	Large	True_Sample	Tetragonisca	weyrauchi	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+136	M155	14	8/11/23	4.268	2000	3000	Large	True_Sample	Tetragonisca	weyrauchi	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+136	M156	14	8/11/23	4.268	2000	3000	Large	True_Sample	Tetragonisca	weyrauchi	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+150	M152	13	8/11/23	3.186	136	600	Small	True_Sample	Trigonisca	buyssoni	1	Costa Rica	Arenal	Ethanol	N_C_America	Neotropics
+162	M138	11	8/11/23	5.738	2000	5201	Large	True_Sample	Scaptotrigona	pectoralis	2	Costa Rica	Guanacaste	Ethanol	N_C_America	Neotropics
+162	M139	11	8/11/23	5.738	2000	5201	Large	True_Sample	Scaptotrigona	pectoralis	2	Costa Rica	Guanacaste	Ethanol	N_C_America	Neotropics
+165	M143	11	8/11/23	6.128	6000	10000	XLarge	True_Sample	Scaptotrigona	postica	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+165	M144	11	8/11/23	6.128	6000	10000	XLarge	True_Sample	Scaptotrigona	postica	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+165	M145	11	8/11/23	6.128	6000	10000	XLarge	True_Sample	Scaptotrigona	postica	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+165	M146	11	8/11/23	6.128	6000	10000	XLarge	True_Sample	Scaptotrigona	postica	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+165	M147	11	8/11/23	6.128	6000	10000	XLarge	True_Sample	Scaptotrigona	postica	5	Brazil	Amazonas, INPA	Ethanol	South_America	Neotropics
+172	M102	7	6/11/23	4.14	1200	5000	Large	True_Sample	Trigona	hypogea	5	Brazil	Sao Paulo, Ribeiro Preto	Ethanol	South_America	Neotropics
+172	M103	7	6/11/23	4.14	1200	5000	Large	True_Sample	Trigona	hypogea	5	Brazil	Sao Paulo, Ribeiro Preto	Ethanol	South_America	Neotropics
+172	M104	7	6/11/23	4.14	1200	5000	Large	True_Sample	Trigona	hypogea	5	Brazil	Sao Paulo, Ribeiro Preto	Ethanol	South_America	Neotropics
+172	M105	7	6/11/23	4.14	1200	5000	Large	True_Sample	Trigona	hypogea	5	Brazil	Sao Paulo, Ribeiro Preto	Ethanol	South_America	Neotropics
+172	M106	7	6/11/23	4.14	1200	5000	Large	True_Sample	Trigona	hypogea	5	Brazil	Sao Paulo, Ribeiro Preto	Ethanol	South_America	Neotropics
+180	M121	8	8/11/23	5.456	2000	10000	XLarge	True_Sample	Trigona	fulviventris	4	Costa Rica	Santa Rosa	Ethanol	N_C_America	Neotropics
+181	M119	8	8/11/23	4.992	2000	10000	XLarge	True_Sample	Trigona	fulviventris	3	Costa Rica	Pto. Jimenez	Ethanol	N_C_America	Neotropics
+182	M120	8	8/11/23	5.947	2000	10000	XLarge	True_Sample	Trigona	fulviventris	3	Costa Rica	Pitilla	Ethanol	N_C_America	Neotropics
+183	M122	8	8/11/23	4.877	2000	10000	XLarge	True_Sample	Trigona	fulviventris	1	Costa Rica	Guanacaste	Ethanol (unique specimen)	N_C_America	Neotropics
+184	M110	7	8/11/23	6.686	9000	12000	XLarge	True_Sample	Trigona	silvestriana	5	Costa Rica	Santa Rosa	Ethanol	N_C_America	Neotropics
+186	M109	7	8/11/23	7.078	9000	12000	XLarge	True_Sample	Trigona	silvestriana	3	Costa Rica	Guanacaste	Ethanol	N_C_America	Neotropics
+188	M108	7	8/11/23	5.904	9000	12000	XLarge	True_Sample	Trigona	silvestriana	4	Costa Rica	Santa Rosa	Ethanol	N_C_America	Neotropics
+200	M113	7	8/11/23	7.145	1e+05	2e+05	Enormous	True_Sample	Trigona	amazonensis	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+200	M114	7	8/11/23	7.145	1e+05	2e+05	Enormous	True_Sample	Trigona	amazonensis	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+200	M115	7	8/11/23	7.145	1e+05	2e+05	Enormous	True_Sample	Trigona	amazonensis	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+200	M116	7	8/11/23	7.145	1e+05	2e+05	Enormous	True_Sample	Trigona	amazonensis	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+200	M117	7	8/11/23	7.145	1e+05	2e+05	Enormous	True_Sample	Trigona	amazonensis	5	Peru	Madre de Dios, TPL	Ethanol/Pinned	South_America	Neotropics
+204	M098	7	6/11/23	8.405	NA	3000	Large	True_Sample	Trigona	amalthea	1	Peru	Madre de Dios, Tambopata	Ethanol (unique specimen)	South_America	Neotropics
+207	M101	7	6/11/23	7.738	NA	3000	Large	True_Sample	Trigona	amalthea	3	Ecuador	Napo, Yasuni	Ethanol	South_America	Neotropics
+207	M100	7	6/11/23	7.738	NA	3000	Large	True_Sample	Trigona	amalthea	3	Ecuador	Napo, Yasuni	Ethanol	South_America	Neotropics
+208	M099	7	6/11/23	7.81	NA	3000	Large	True_Sample	Trigona	amalthea	1	Brazil	Amazonas, Palmari	Ethanol	South_America	Neotropics
+213	M107	7	8/11/23	5.32	1200	10000	XLarge	True_Sample	Trigona	fuscipennis	1	Peru	Madre de Dios, Tambopata	Ethanol (unique specimen)	South_America	Neotropics
+216	M111	7	8/11/23	5.411	7000	25000	XLarge	True_Sample	Trigona	corvina	1	Costa Rica	Guapitas	Ethanol (unique specimen)	N_C_America	Neotropics
+219	M112	7	8/11/23	5.462	7000	25000	XLarge	True_Sample	Trigona	corvina	2	Costa Rica	Pto. Jimenez	Ethanol	N_C_America	Neotropics
+220	M096	7	6/11/23	6.039	700	1800	Medium	True_Sample	Trigona	nigerrima	1	Costa Rica	Arenal	Ethanol	N_C_America	Neotropics
+221	M095	7	6/11/23	5.019	400	600	Small	True_Sample	Trigona	setentrionalis	1	Costa Rica	Pitilla	Ethanol (unique specimen)	N_C_America	Neotropics
+223	M027	4	1/11/23	4.494	NA	2000	Medium	True_Sample	Austroplebeia	australis	5	Australia	P. Drummond, 970522-17 Rockhampton	Ethanol	Australia	Indo-Malay-Australasia
+223	M025	4	1/11/23	4.494	NA	2000	Medium	True_Sample	Austroplebeia	australis	5	Australia	P. Drummond, 970522-17 Rockhampton	Ethanol	Australia	Indo-Malay-Australasia
+223	M026	4	1/11/23	4.494	NA	2000	Medium	True_Sample	Austroplebeia	australis	5	Australia	P. Drummond, 970522-17 Rockhampton	Ethanol	Australia	Indo-Malay-Australasia
+223	M028	4	1/11/23	4.494	NA	2000	Medium	True_Sample	Austroplebeia	australis	5	Australia	P. Drummond, 970522-17 Rockhampton	Ethanol	Australia	Indo-Malay-Australasia
+223	M029	4	1/11/23	4.494	NA	2000	Medium	True_Sample	Austroplebeia	australis	5	Australia	P. Drummond, 970522-17 Rockhampton	Ethanol	Australia	Indo-Malay-Australasia
+226	M007	2	30/10/23	3.919	1000	5000	Large	True_Sample	Tetragonula	mellipes	5	Australia	A. Dollin. Kalumbura, Western Australia. 960325	Ethanol	Australia	Indo-Malay-Australasia
+226	M009	2	30/10/23	3.919	1000	5000	Large	True_Sample	Tetragonula	mellipes	5	Australia	A. Dollin. Kalumbura, Western Australia. 960325	Ethanol	Australia	Indo-Malay-Australasia
+226	M006	2	30/10/23	3.842	1000	5000	Large	True_Sample	Tetragonula	mellipes	5	Australia	A. Dollin. Kalumbura, Western Australia. 960325	Ethanol	Australia	Indo-Malay-Australasia
+226	M008	2	30/10/23	3.842	1000	5000	Large	True_Sample	Tetragonula	mellipes	5	Australia	A. Dollin. Kalumbura, Western Australia. 960325	Ethanol	Australia	Indo-Malay-Australasia
+226	M010	2	30/10/23	3.842	1000	5000	Large	True_Sample	Tetragonula	mellipes	5	Australia	A. Dollin. Kalumbura, Western Australia. 960325	Ethanol	Australia	Indo-Malay-Australasia
+228	M016	2	1/11/23	4.212	2500	11000	XLarge	True_Sample	Tetragonula	carbonaria	3	Australia	B. Oldroyd Coolangatta, Queensland 960510	Ethanol	Australia	Indo-Malay-Australasia
+228	M017	2	1/11/23	4.212	2500	11000	XLarge	True_Sample	Tetragonula	carbonaria	3	Australia	B. Oldroyd Coolangatta, Queensland 960510	Ethanol	Australia	Indo-Malay-Australasia
+228	M018	2	1/11/23	4.212	2500	11000	XLarge	True_Sample	Tetragonula	carbonaria	3	Australia	B. Oldroyd Coolangatta, Queensland 960510	Ethanol	Australia	Indo-Malay-Australasia
+229	M011	2	1/11/23	4.026	3000	7000	Large	True_Sample	Tetragonula	hockingsi	5	Australia	B. Oldroyd. Coolangatta Queensland. 960510	Ethanol	Australia	Indo-Malay-Australasia
+229	M012	2	1/11/23	4.026	3000	7000	Large	True_Sample	Tetragonula	hockingsi	5	Australia	B. Oldroyd. Coolangatta Queensland. 960510	Ethanol	Australia	Indo-Malay-Australasia
+229	M013	2	1/11/23	4.026	3000	7000	Large	True_Sample	Tetragonula	hockingsi	5	Australia	B. Oldroyd. Coolangatta Queensland. 960510	Ethanol	Australia	Indo-Malay-Australasia
+229	M014	2	1/11/23	4.026	3000	7000	Large	True_Sample	Tetragonula	hockingsi	5	Australia	B. Oldroyd. Coolangatta Queensland. 960510	Ethanol	Australia	Indo-Malay-Australasia
+229	M015	2	1/11/23	4.026	3000	7000	Large	True_Sample	Tetragonula	hockingsi	5	Australia	B. Oldroyd. Coolangatta Queensland. 960510	Ethanol	Australia	Indo-Malay-Australasia
+237	M050	6	3/11/23	5.265	800	1600	Medium	True_Sample	Frieseomelitta	varia	1	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+239	M069	6	6/11/23	4.578	1070	3000	Large	True_Sample	Plebeia	droryana	3	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+239	M068	6	6/11/23	4.578	1070	3000	Large	True_Sample	Plebeia	droryana	3	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+239	M067	6	6/11/23	4.578	1070	3000	Large	True_Sample	Plebeia	droryana	3	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+240	M064	6	6/11/23	3.682	300	2500	Medium	True_Sample	Friesella	schrottkyi	5	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+240	M065	6	6/11/23	3.682	300	2500	Medium	True_Sample	Friesella	schrottkyi	5	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+240	M066	6	6/11/23	3.682	300	2500	Medium	True_Sample	Friesella	schrottkyi	5	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+242	M048	6	3/11/23	11.6	150	800	Small	True_Sample	Eomelipona	bicolor	1	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+243	M051	6	3/11/23	4.596	800	1600	Medium	True_Sample	Frieseomelitta	varia	1	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+244	M041	6	1/11/23	3.288	200	900	Small	True_Sample	Plebeia	minima	5	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+244	M040	6	1/11/23	3.288	200	900	Small	True_Sample	Plebeia	minima	5	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+244	M042	6	1/11/23	3.288	200	900	Small	True_Sample	Plebeia	minima	5	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+244	M043	6	1/11/23	3.288	200	900	Small	True_Sample	Plebeia	minima	5	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+247	M044	6	1/11/23	6.853	24	423	Small	True_Sample	Scaptotrigona	xanthotricha	1	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+248	M073	6	6/11/23	4.843	2000	3000	Large	True_Sample	Nannotrigona	testaceicornis	2	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+248	M074	6	6/11/23	4.843	2000	3000	Large	True_Sample	Nannotrigona	testaceicornis	2	Brazil	Sao Paulo, R. Preto (12.2.93)	Ethanol (not keept cold!)	South_America	Neotropics
+258	M002	2	30/10/23	4.475	1000	5000	Large	True_Sample	Tetragonula	laeviceps	5	Indonesia	Wuasa	Ethanol	Asia	Indo-Malay-Australasia
+262	M003	2	30/10/23	4.238	1000	5000	Large	True_Sample	Tetragonula	laeviceps	5	Indonesia	Sulawesi, Rahmat	Ethanol	Asia	Indo-Malay-Australasia
+268	M004	2	30/10/23	4.78	1000	5000	Large	True_Sample	Tetragonula	laeviceps	5	Malaysia	Panabo	Ethanol	Asia	Indo-Malay-Australasia
+294	M129	9	8/11/23	10.952	300	2000	Medium	True_Sample	Melikerria	beecheii	3	Mexico	Tapachula	Ethanol/Pinned	N_C_America	Neotropics
+294	M130	9	8/11/23	10.952	300	2000	Medium	True_Sample	Melikerria	beecheii	3	Mexico	Tapachula	Ethanol/Pinned	N_C_America	Neotropics
+294	M131	9	8/11/23	10.952	300	2000	Medium	True_Sample	Melikerria	beecheii	3	Mexico	Tapachula	Ethanol/Pinned	N_C_America	Neotropics
+296	M171	15	8/11/23	5.171	700	3000	Large	True_Sample	Nannotrigona	perilampoides	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+296	M172	15	8/11/23	5.171	700	3000	Large	True_Sample	Nannotrigona	perilampoides	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+296	M173	15	8/11/23	5.171	700	3000	Large	True_Sample	Nannotrigona	perilampoides	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+296	M174	15	8/11/23	5.171	700	3000	Large	True_Sample	Nannotrigona	perilampoides	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+297	M140	11	8/11/23	5.404	2000	5201	Large	True_Sample	Scaptotrigona	pectoralis	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+297	M141	11	8/11/23	5.404	2000	5201	Large	True_Sample	Scaptotrigona	pectoralis	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+297	M142	11	8/11/23	5.404	2000	5201	Large	True_Sample	Scaptotrigona	pectoralis	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+300	M160	14	8/11/23	3.566	300	8000	Large	True_Sample	Tetragonisca	angustula	5	Mexico	Tapachula	Ethanol	N_C_America	Neotropics
+311	M021	3	1/11/23	5.153	NA	5000	Large	True_Sample	Heterotrigona	itama	5	Malaysia	Kedah, Kuala Muda	Ethanol	Asia	Indo-Malay-Australasia
+311	M022	3	1/11/23	5.153	NA	5000	Large	True_Sample	Heterotrigona	itama	5	Malaysia	Kedah, Kuala Muda	Ethanol	Asia	Indo-Malay-Australasia
+329	M005	2	30/10/23	4.57	1000	5000	Large	True_Sample	Tetragonula	laeviceps	5	Malaysia	Kedah, Kuala Muda	Ethanol	Asia	Indo-Malay-Australasia
+331	M161	14	8/11/23	8.595	NA	10000	XLarge	True_Sample	Duckeola	ghilianii	1	Brazil	Amazonas, Santa Helena	Ethanol	South_America	Neotropics
+332	M123	8	8/11/23	5.393	2000	10000	XLarge	True_Sample	Trigona	fulviventris	5	Peru	Tumbes, Zapallal	Ethanol	South_America	Neotropics
+388	M023	3	1/11/23	4.618	NA	5000	Large	True_Sample	Heterotrigona	itama	1	Malaysia	Mahua 5.47/116.25, 1000m	Ethanol	Asia	Indo-Malay-Australasia
+389	M019	3	1/11/23	3.565	1000	3000	Large	True_Sample	Sundatrigona	moorei	1	Malaysia	Mahua 5.47/116.25, 1000m	Ethanol	Asia	Indo-Malay-Australasia
+406	M035	5	1/11/23	10.109	1000	1300	Medium	True_Sample	Meliponula	bocandei	5	Uganda	Bwindi	Ethanol	Africa	AfroTropics
+406	M036	5	1/11/23	10.109	1000	1300	Medium	True_Sample	Meliponula	bocandei	5	Uganda	Bwindi	Ethanol	Africa	AfroTropics
+407	M037	5	1/11/23	9.727	1000	1300	Medium	True_Sample	Meliponula	bocandei	5	Uganda	Bwindi	Ethanol	Africa	AfroTropics
+407	M038	5	1/11/23	9.727	1000	1300	Medium	True_Sample	Meliponula	bocandei	5	Uganda	Bwindi	Ethanol	Africa	AfroTropics
+407	M039	5	1/11/23	9.727	1000	1300	Medium	True_Sample	Meliponula	bocandei	5	Uganda	Bwindi	Ethanol	Africa	AfroTropics
+426	M031	5	1/11/23	3.663	100	750	Small	True_Sample	Hypotrigona	gribodoi	5	Cameroon	Ngaoundere	Ethanol/Pinned	Africa	AfroTropics
+427	M032	5	1/11/23	3.086	100	750	Small	True_Sample	Hypotrigona	gribodoi	5	Cameroon	Ngaoundere	Ethanol/Pinned	Africa	AfroTropics
+430	M033	5	1/11/23	2.872	100	750	Small	True_Sample	Hypotrigona	gribodoi	5	Cameroon	Ngaoundere	Ethanol/Pinned	Africa	AfroTropics
+430	M034	5	1/11/23	2.872	100	750	Small	True_Sample	Hypotrigona	gribodoi	5	Cameroon	Ngaoundere	Ethanol/Pinned	Africa	AfroTropics
+432	M030	5	1/11/23	4.081	100	750	Small	True_Sample	Hypotrigona	gribodoi	2	South Africa	Limpopo, Waterpoort	Ethanol/Pinned	Africa	AfroTropics
+445	M062	6	6/11/23	3.566	300	2500	Medium	True_Sample	Friesella	schrottkyi	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+445	M063	6	6/11/23	3.566	300	2500	Medium	True_Sample	Friesella	schrottkyi	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+447	M091	6	6/11/23	6.014	5000	180000	Enormous	True_Sample	Trigona	spinipes	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+447	M090	6	6/11/23	6.014	5000	180000	Enormous	True_Sample	Trigona	spinipes	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+447	M092	6	6/11/23	6.014	5000	180000	Enormous	True_Sample	Trigona	spinipes	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+447	M093	6	6/11/23	6.014	5000	180000	Enormous	True_Sample	Trigona	spinipes	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+447	M094	6	6/11/23	6.014	5000	180000	Enormous	True_Sample	Trigona	spinipes	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+448	M052	6	3/11/23	4.938	NA	1900	Medium	True_Sample	Oxytrigona	tataira	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+448	M053	6	3/11/23	4.938	NA	1900	Medium	True_Sample	Oxytrigona	tataira	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+448	M054	6	3/11/23	4.938	NA	1900	Medium	True_Sample	Oxytrigona	tataira	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+448	M055	6	3/11/23	4.938	NA	1900	Medium	True_Sample	Oxytrigona	tataira	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+448	M056	6	3/11/23	4.938	NA	1900	Medium	True_Sample	Oxytrigona	tataira	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+449	M079	6	6/11/23	5.804	2000	7000	Large	True_Sample	Lestrimelitta	limao	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+450	M070	6	6/11/23	4.46	2000	3000	Large	True_Sample	Nannotrigona	testaceicornis	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+450	M071	6	6/11/23	4.46	2000	3000	Large	True_Sample	Nannotrigona	testaceicornis	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+450	M072	6	6/11/23	4.46	2000	3000	Large	True_Sample	Nannotrigona	testaceicornis	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+451	M081	6	6/11/23	3.737	300	8000	Large	True_Sample	Tetragonisca	angustula	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+452	M087	6	6/11/23	6.152	5383	29000	XLarge	True_Sample	Tetragona	clavipes	5	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+456	M045	6	1/11/23	11.4	150	800	Small	True_Sample	Eomelipona	bicolor	3	Brazil	MG, Conselheiro Lafaiete	NA	South_America	Neotropics
+456	M046	6	3/11/23	11.4	150	800	Small	True_Sample	Eomelipona	bicolor	3	Brazil	MG, Conselheiro Lafaiete	NA	South_America	Neotropics
+456	M047	6	3/11/23	11.4	150	800	Small	True_Sample	Eomelipona	bicolor	3	Brazil	MG, Conselheiro Lafaiete	NA	South_America	Neotropics
+457	M049	6	3/11/23	5.098	800	1600	Medium	True_Sample	Frieseomelitta	varia	1	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+458	M084	6	6/11/23	5.238	1200	10000	XLarge	True_Sample	Trigona	fuscipennis	4	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+458	M083	6	6/11/23	5.238	1200	10000	XLarge	True_Sample	Trigona	fuscipennis	4	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+458	M082	6	6/11/23	5.238	1200	10000	XLarge	True_Sample	Trigona	fuscipennis	4	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+458	M085	6	6/11/23	5.238	1200	10000	XLarge	True_Sample	Trigona	fuscipennis	4	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+459	M088	6	6/11/23	6.685	NA	40000	XLarge	True_Sample	Trigona	hyalinata	2	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+459	M089	6	6/11/23	6.685	NA	40000	XLarge	True_Sample	Trigona	hyalinata	2	Brazil	SP, Ribeirao Preto	NA	South_America	Neotropics
+461	M060	6	3/11/23	8.288	160	2500	Medium	True_Sample	Eomelipona	marginata	4	Brazil	PNN hives	NA	South_America	Neotropics
+461	M057	6	3/11/23	8.293	160	2500	Medium	True_Sample	Eomelipona	marginata	4	Brazil	PNN hives	NA	South_America	Neotropics
+461	M058	6	3/11/23	8.293	160	2500	Medium	True_Sample	Eomelipona	marginata	4	Brazil	PNN hives	NA	South_America	Neotropics
+461	M059	6	3/11/23	8.288	160	2500	Medium	True_Sample	Eomelipona	marginata	4	Brazil	PNN hives	NA	South_America	Neotropics
+464	M075	6	6/11/23	5.84	2000	3000	Large	True_Sample	Geotrigona	mombuca	3	Brazil	SP, Cassio dos Coqueiros	NA	South_America	Neotropics
+464	M076	6	6/11/23	5.84	2000	3000	Large	True_Sample	Geotrigona	mombuca	3	Brazil	SP, Cassio dos Coqueiros	NA	South_America	Neotropics
+464	M077	6	6/11/23	5.84	2000	3000	Large	True_Sample	Geotrigona	mombuca	3	Brazil	SP, Cassio dos Coqueiros	NA	South_America	Neotropics
+467	M080	6	6/11/23	3.737	300	8000	Large	True_Sample	Tetragonisca	angustula	3	Brazil	SP, Cassio dos Coqueiros	NA	South_America	Neotropics
+468	M086	6	6/11/23	6.152	5383	29000	XLarge	True_Sample	Tetragona	clavipes	2	Brazil	SP, Cassio dos Coqueiros	NA	South_America	Neotropics
+469	M078	6	6/11/23	5.804	2000	7000	Large	True_Sample	Lestrimelitta	limao	3	Brazil	SP, Cassio dos Coqueiros	NA	South_America	Neotropics
+472	M061	6	6/11/23	6.591	500	2500	Medium	True_Sample	Schwarziana	quadripunctata	1	Brazil	SP, Cunha/Mata Atlantica	NA	South_America	Neotropics
+481	M001	2	30/10/23	4.244	1000	5000	Large	True_Sample	Tetragonula	laeviceps	2	Malaysia	Borneo, Labang	NA	Asia	Indo-Malay-Australasia
+491	M020	3	1/11/23	5.44	NA	5000	Large	True_Sample	Heterotrigona	itama	5	Malaysia	Borneo, Taman	NA	Asia	Indo-Malay-Australasia
+505	M024	3	1/11/23	4.992	NA	5000	Large	True_Sample	Heterotrigona	itama	5	Malaysia	Borneo, Labang	NA	Asia	Indo-Malay-Australasia
+601	M184	16	8/11/23	4.571	NA	2500	Medium	True_Sample	Tetragonula	iridipennis	1	India	Kerala, Alappuzhal, 20km Cherthala, 4/12/06	NA	Asia	Indo-Malay-Australasia
+613	M183	16	8/11/23	4.081	387	450	Small	True_Sample	Scaura	latitarsis	1	Bolivia	Mapiri	NA	South_America	Neotropics
+628	M187	16	8/11/23	9.585	9000	12000	XLarge	True_Sample	Trigona	silvestriana	5	Colombia	3386	NA	South_America	Neotropics
+629	M186	16	8/11/23	9.281	9000	12000	XLarge	True_Sample	Trigona	silvestriana	4	Colombia	3386	NA	South_America	Neotropics
+632	M185	16	8/11/23	4.349	2281	4076	Large	True_Sample	Nogueirapis	mirandula	1	NA	NA	NA	NA	NA

@@ -1,0 +1,188 @@
+SampleID	CollectionID	Bee_Genus	Bee_Species	Box	PrepDate	BodySize_IT_uM	ColonySize_L	ColonySize_U	ColonySize
+M044	247	Scaptotrigona	xanthotricha	6	01/11/2023	6.853	24	423	Small
+M183	613	Scaura	latitarsis	16	08/11/2023	4.081	387	450	Small
+M150	9	Scaura	latitarsis	13	08/11/2023	3.809	387	450	Small
+M151	9	Scaura	latitarsis	13	08/11/2023	3.809	387	450	Small
+M148	89	Scaura	latitarsis	13	08/11/2023	3.586	387	450	Small
+M149	89	Scaura	latitarsis	13	08/11/2023	3.586	387	450	Small
+M152	150	Tetragonisca	buyssoni	13	08/11/2023	3.186	136	600	Small
+M095	221	Trigona	setentrionalis	7	06/11/2023	5.019	400	600	Small
+M030	432	Hypotrigona	gribodoi	5	01/11/2023	4.081	100	750	Small
+M031	426	Hypotrigona	gribodoi	5	01/11/2023	3.663	100	750	Small
+M032	427	Hypotrigona	gribodoi	5	01/11/2023	3.086	100	750	Small
+M033	430	Hypotrigona	gribodoi	5	01/11/2023	2.872	100	750	Small
+M034	430	Hypotrigona	gribodoi	5	01/11/2023	2.872	100	750	Small
+M048	242	melipona	bicolor	6	03/11/2023	11.6	150	800	Small
+M045	456	Eomelipona	bicolor	6	01/11/2023	11.4	150	800	Small
+M046	456	Eomelipona	bicolor	6	03/11/2023	11.4	150	800	Small
+M047	456	Eomelipona	bicolor	6	03/11/2023	11.4	150	800	Small
+M040	244	Plebeia	minima	6	01/11/2023	3.288	200	900	Small
+M041	244	Plebeia	minima	6	01/11/2023	3.288	200	900	Small
+M042	244	Plebeia	minima	6	01/11/2023	3.288	200	900	Small
+M043	244	Plebeia	minima	6	01/11/2023	3.288	200	900	Small
+M137	86	Plebeia	minima	10	08/11/2023	3.147	200	900	Small
+M124	120	Melikerria	fasciculata	9	08/11/2023	8.673	300	1000	Medium 
+M125	120	Melikerria	fasciculata	9	08/11/2023	8.673	300	1000	Medium 
+M035	406	Meliponula	bocandei	5	01/11/2023	10.109	1000	1300	Medium 
+M036	406	Meliponula	bocandei	5	01/11/2023	10.109	1000	1300	Medium 
+M037	407	Meliponula	bocandei	5	01/11/2023	9.727	1000	1300	Medium 
+M038	407	Meliponula	bocandei	5	01/11/2023	9.727	1000	1300	Medium 
+M039	407	Meliponula	bocandei	5	01/11/2023	9.727	1000	1300	Medium 
+M050	237	Frieseomelitta	varia	6	03/11/2023	5.265	800	1600	Medium 
+M049	457	Frieseomelitta	varia	6	03/11/2023	5.098	800	1600	Medium 
+M051	243	Frieseomelitta	varia	6	03/11/2023	4.596	800	1600	Medium 
+M096	220	Trigona	nigerrima	7	06/11/2023	6.039	700	1800	Medium 
+M165	6	Trigona	obscura	15	08/11/2023	4.321		1900	Medium 
+M166	6	Trigona	obscura	15	08/11/2023	4.321		1900	Medium 
+M167	6	Trigona	obscura	15	08/11/2023	4.321		1900	Medium 
+M168	6	Trigona	obscura	15	08/11/2023	4.321		1900	Medium 
+M169	6	Trigona	obscura	15	08/11/2023	4.321		1900	Medium 
+M052	448	Frieseomelitta	tataira	6	03/11/2023	4.938		1900	Medium 
+M053	448	Frieseomelitta	tataira	6	03/11/2023	4.938		1900	Medium 
+M054	448	Frieseomelitta	tataira	6	03/11/2023	4.938		1900	Medium 
+M055	448	Frieseomelitta	tataira	6	03/11/2023	4.938		1900	Medium 
+M056	448	Frieseomelitta	tataira	6	03/11/2023	4.938		1900	Medium 
+M025	223	Plebeia	australis	4	01/11/2023	4.494		2000	Medium 
+M026	223	Plebeia	australis	4	01/11/2023	4.494		2000	Medium 
+M027	223	Plebeia	australis	4	01/11/2023	4.494		2000	Medium 
+M028	223	Plebeia	australis	4	01/11/2023	4.494		2000	Medium 
+M029	223	Plebeia	australis	4	01/11/2023	4.494		2000	Medium 
+M129	294	Melipona	beecheii	9	08/11/2023	10.952	300	2000	Medium 
+M130	294	Melipona	beecheii	9	08/11/2023	10.952	300	2000	Medium 
+M131	294	Melipona	beecheii	9	08/11/2023	10.952	300	2000	Medium 
+M126	121	Michmelia	scutellaris	9	08/11/2023	12.367	1000	2000	Medium 
+M127	121	Michmelia	scutellaris	9	08/11/2023	12.367	1000	2000	Medium 
+M128	121	Michmelia	scutellaris	9	08/11/2023	12.367	1000	2000	Medium 
+M184	601	Tetragonula	iridipennis	16	08/11/2023	4.571		2500	Medium 
+M057	461	Eomelipona	marginata	6	03/11/2023	8.293	160	2500	Medium 
+M058	461	Eomelipona	marginata	6	03/11/2023	8.293	160	2500	Medium 
+M059	461	Eomelipona	marginata	6	03/11/2023	8.288	160	2500	Medium 
+M060	461	Eomelipona	marginata	6	03/11/2023	8.288	160	2500	Medium 
+M061	472	Schwarziana	quadripunctata	6	06/11/2023	6.591	500	2500	Medium 
+M064	240	Friesella	schrottkyi	6	06/11/2023	3.682	300	2500	Medium 
+M065	240	Friesella	schrottkyi	6	06/11/2023	3.682	300	2500	Medium 
+M066	240	Friesella	schrottkyi	6	06/11/2023	3.682	300	2500	Medium 
+M062	445	Friesella	schrottkyi	6	06/11/2023	3.566	300	2500	Medium 
+M063	445	Friesella	schrottkyi	6	06/11/2023	3.566	300	2500	Medium 
+M097	52	Trigona	amalthea	7	06/11/2023	9.374		3000	Large 
+M098	204	Trigona	amalthea	7	06/11/2023	8.405		3000	Large 
+M099	208	Trigona	amalthea	7	06/11/2023	7.81		3000	Large 
+M100	207	Trigona	amalthea	7	06/11/2023	7.738		3000	Large 
+M101	207	Trigona	amalthea	7	06/11/2023	7.738		3000	Large 
+M067	239	Plebeia	droryana	6	06/11/2023	4.578	1070	3000	Large 
+M068	239	Plebeia	droryana	6	06/11/2023	4.578	1070	3000	Large 
+M069	239	Plebeia	droryana	6	06/11/2023	4.578	1070	3000	Large 
+M075	464	Geotrigona	mombuca	6	06/11/2023	5.840	2000	3000	Large 
+M076	464	Geotrigona	mombuca	6	06/11/2023	5.840	2000	3000	Large 
+M077	464	Geotrigona	mombuca	6	06/11/2023	5.840	2000	3000	Large 
+M019	389	Sundatrigona 	moorei	3	01/11/2023	3.565	1000	3000	Large 
+M171	296	Nannotrigona	perilampoides	15	08/11/2023	5.171	700	3000	Large 
+M172	296	Nannotrigona	perilampoides	15	08/11/2023	5.171	700	3000	Large 
+M173	296	Nannotrigona	perilampoides	15	08/11/2023	5.171	700	3000	Large 
+M174	296	Nannotrigona	perilampoides	15	08/11/2023	5.171	700	3000	Large 
+M170	112	Nannotrigona	perilampoides	15	08/11/2023	5.045	700	3000	Large 
+M132	123	Michmelia	seminigra	9	08/11/2023	11.234	1000	3000	Large 
+M133	123	Michmelia	seminigra	9	08/11/2023	11.234	1000	3000	Large 
+M134	123	Michmelia	seminigra	9	08/11/2023	11.234	1000	3000	Large 
+M135	123	Michmelia	seminigra	9	08/11/2023	11.234	1000	3000	Large 
+M136	123	Michmelia	seminigra	9	08/11/2023	11.234	1000	3000	Large 
+M073	248	Nannotrigona	testaceicornis	6	06/11/2023	4.843	2000	3000	Large 
+M074	248	Nannotrigona	testaceicornis	6	06/11/2023	4.843	2000	3000	Large 
+M070	450	Nannotrigona	testaceicornis	6	06/11/2023	4.460	2000	3000	Large 
+M071	450	Nannotrigona	testaceicornis	6	06/11/2023	4.460	2000	3000	Large 
+M072	450	Nannotrigona	testaceicornis	6	06/11/2023	4.460	2000	3000	Large 
+M157	135		weyrauchi	14	08/11/2023	4.725	2000	3000	Large 
+M153	136	Tetragonisca	weyrauchi	14	08/11/2023	4.268	2000	3000	Large 
+M154	136	Tetragonisca	weyrauchi	14	08/11/2023	4.268	2000	3000	Large 
+M155	136	Tetragonisca	weyrauchi	14	08/11/2023	4.268	2000	3000	Large 
+M156	136	Tetragonisca	weyrauchi	14	08/11/2023	4.268	2000	3000	Large 
+M185	632	Nogueirapis	mirandula	16	08/11/2023	4.349	2281	4076	Large 
+M102	172	Trigona	hypogea	7	06/11/2023	4.14	1200	5000	Large 
+M103	172	Trigona	hypogea	7	06/11/2023	4.14	1200	5000	Large 
+M104	172	Trigona	hypogea	7	06/11/2023	4.14	1200	5000	Large 
+M105	172	Trigona	hypogea	7	06/11/2023	4.14	1200	5000	Large 
+M106	172	Trigona	hypogea	7	06/11/2023	4.14	1200	5000	Large 
+M020	491	Heterotrigona	itama	3	01/11/2023	5.44		5000	Large 
+M021	311	Heterotrigona	itama	3	01/11/2023	5.153		5000	Large 
+M022	311	Heterotrigona	itama	3	01/11/2023	5.153		5000	Large 
+M024	505	Heterotrigona	itama	3	01/11/2023	4.992		5000	Large 
+M023	388	Heterotrigona	itama	3	01/11/2023	4.618		5000	Large 
+M004	268	Tetragonula	laeviceps	2	30/10/2023	4.78	1000	5000	Large 
+M005	329	Tetragonula	laeviceps	2	30/10/2023	4.57	1000	5000	Large 
+M002	258	Tetragonula	laeviceps	2	30/10/2023	4.475	1000	5000	Large 
+M001	481	Tetragonula	laeviceps	2	30/10/2023	4.244	1000	5000	Large 
+M003	262	Tetragonula	laeviceps	2	30/10/2023	4.238	1000	5000	Large 
+M007	226	Tetragonula	mellipes	2	30/10/2023	3.919	1000	5000	Large 
+M009	226	Tetragonula	mellipes	2	30/10/2023	3.919	1000	5000	Large 
+M006	226	Tetragonula	mellipes	2	30/10/2023	3.842	1000	5000	Large 
+M008	226	Tetragonula	mellipes	2	30/10/2023	3.842	1000	5000	Large 
+M010	226	Tetragonula	mellipes	2	30/10/2023	3.842	1000	5000	Large 
+M138	162	Scaptotrigona	pectoralis	11	08/11/2023	5.738	2000	5201	Large 
+M139	162	Scaptotrigona	pectoralis	11	08/11/2023	5.738	2000	5201	Large 
+M140	297	Scaptotrigona	pectoralis	11	08/11/2023	5.404	2000	5201	Large 
+M141	297	Scaptotrigona	pectoralis	11	08/11/2023	5.404	2000	5201	Large 
+M142	297	Scaptotrigona	pectoralis	11	08/11/2023	5.404	2000	5201	Large 
+M175	114	Oxytrigona	mellicolor	15	08/11/2023	4.957		5442	Large 
+M176	114	Oxytrigona	mellicolor	15	08/11/2023	4.957		5442	Large 
+M178	114	Oxytrigona	mellicolor	15	08/11/2023	4.957		5442	Large 
+M179	114	Oxytrigona	mellicolor	15	08/11/2023	4.957		5442	Large 
+M177	114	Oxytrigona	mellicolor	15	08/11/2023	4.957		5442	Large 
+M011	229	Tetragonula	hockingsi	2	01/11/2023	4.026	3000	7000	Large 
+M012	229	Tetragonula	hockingsi	2	01/11/2023	4.026	3000	7000	Large 
+M013	229	Tetragonula	hockingsi	2	01/11/2023	4.026	3000	7000	Large 
+M014	229	Tetragonula	hockingsi	2	01/11/2023	4.026	3000	7000	Large 
+M015	229	Tetragonula	hockingsi	2	01/11/2023	4.026	3000	7000	Large 
+M181	119	Lestrimelitta	limao	15	08/11/2023	6.041	2000	7000	Large 
+M182	119	Lestrimelitta	limao	15	08/11/2023	6.041	2000	7000	Large 
+M078	469	Lestrimelitta	limao	6	06/11/2023	5.804	2000	7000	Large 
+M079	449	Lestrimelitta	limao	6	06/11/2023	5.804	2000	7000	Large 
+M180	40	Lestrimelitta	limao	15	08/11/2023	5.636	2000	7000	Large 
+M159	134	Tetragonisca	angustula	14	08/11/2023	3.893	300	8000	Large 
+M158	132	Tetragonisca	angustula	14	08/11/2023	3.833	300	8000	Large 
+M080	467	Tetragonisca	angustula	6	06/11/2023	3.737	300	8000	Large 
+M081	451	Tetragonisca	angustula	6	06/11/2023	3.737	300	8000	Large 
+M160	300	Tetragonisca	angustula	14	08/11/2023	3.566	300	8000	Large 
+M118	58	Trigona	cilipes	8	08/11/2023	5.865	400	8000	Large 
+M120	182	Trigona	fulviventris	8	08/11/2023	5.947	2000	10000	XLarge
+M121	180	Trigona	fulviventris	8	08/11/2023	5.456	2000	10000	XLarge
+M123	332	Trigona	fulviventris	8	08/11/2023	5.393	2000	10000	XLarge
+M119	181	Trigona	fulviventris	8	08/11/2023	4.992	2000	10000	XLarge
+M122	183	Trigona	fulviventris	8	08/11/2023	4.877	2000	10000	XLarge
+M107	213	Trigona	fuscipennis	7	08/11/2023	5.32	1200	10000	XLarge
+M082	458	Trigona	fuscipennis	6	06/11/2023	5.238	1200	10000	XLarge
+M083	458	Trigona	fuscipennis	6	06/11/2023	5.238	1200	10000	XLarge
+M084	458	Trigona	fuscipennis	6	06/11/2023	5.238	1200	10000	XLarge
+M085	458	Trigona	fuscipennis	6	06/11/2023	5.238	1200	10000	XLarge
+M161	331	Duckeola	ghilianii	14	08/11/2023	8.595		10000	XLarge
+M143	165	Scaptotrigona	postica	11	08/11/2023	6.128	6000	10000	XLarge
+M144	165	Scaptotrigona	postica	11	08/11/2023	6.128	6000	10000	XLarge
+M145	165	Scaptotrigona	postica	11	08/11/2023	6.128	6000	10000	XLarge
+M146	165	Scaptotrigona	postica	11	08/11/2023	6.128	6000	10000	XLarge
+M147	165	Scaptotrigona	postica	11	08/11/2023	6.128	6000	10000	XLarge
+M016	228	Tetragonula	carbonaria	2	01/11/2023	4.212	2500	11000	XLarge
+M017	228	Tetragonula	carbonaria	2	01/11/2023	4.212	2500	11000	XLarge
+M018	228	Tetragonula	carbonaria	2	01/11/2023	4.212	2500	11000	XLarge
+M187	628	Trigona	silvestriana	16	08/11/2023	9.585	9000	12000	XLarge
+M186	629	Trigona	silvestriana	16	08/11/2023	9.281	9000	12000	XLarge
+M109	186	Trigona	silvestriana	7	08/11/2023	7.078	9000	12000	XLarge
+M110	184	Trigona	silvestriana	7	08/11/2023	6.686	9000	12000	XLarge
+M108	188	Trigona	silvestriana	7	08/11/2023	5.904	9000	12000	XLarge
+M112	219	Trigona	corvina	7	08/11/2023	5.462	7000	25000	XLarge
+M111	216	Trigona	corvina	7	08/11/2023	5.411	7000	25000	XLarge
+M086	468	Tetragona	clavipes	6	06/11/2023	6.152	5383	29000	XLarge
+M087	452	Tetragona	clavipes	6	06/11/2023	6.152	5383	29000	XLarge
+M163	84	Tetragona	clavipes	14	08/11/2023	6.106	5383	29000	XLarge
+M162	1	Tetragona	clavipes	14	08/11/2023	5.67	5383	29000	XLarge
+M164	56	Tetragona	clavipes	14	08/11/2023	5.437	5383	29000	XLarge
+M088	459	Trigona	hyalinata	6	06/11/2023	6.685		40000	XLarge
+M089	459	Trigona	hyalinata	6	06/11/2023	6.685		40000	XLarge
+M090	447	Trigona	spinipes	6	06/11/2023	6.014	5000	180000	Enormous
+M091	447	Trigona	spinipes	6	06/11/2023	6.014	5000	180000	Enormous
+M092	447	Trigona	spinipes	6	06/11/2023	6.014	5000	180000	Enormous
+M093	447	Trigona	spinipes	6	06/11/2023	6.014	5000	180000	Enormous
+M094	447	Trigona	spinipes	6	06/11/2023	6.014	5000	180000	Enormous
+M113	200	Trigona	amazonensis	7	08/11/2023	7.145	100000	200000	Enormous
+M114	200	Trigona	amazonensis	7	08/11/2023	7.145	100000	200000	Enormous
+M115	200	Trigona	amazonensis	7	08/11/2023	7.145	100000	200000	Enormous
+M116	200	Trigona	amazonensis	7	08/11/2023	7.145	100000	200000	Enormous
+M117	200	Trigona	amazonensis	7	08/11/2023	7.145	100000	200000	Enormous

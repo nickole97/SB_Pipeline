@@ -1,0 +1,1509 @@
+---
+title: "02 - Microbiome Analysis and Phylogenetic Comparative Methods"
+author: "Nickole Villabona"
+date: "2025"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: united
+    code_folding: hide
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+# Set working directory to project root so relative paths work when knitting from RStudio
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+
+library(vroom)
+library(tidyverse)
+library(reshape2)
+library(funrar)
+library(phyloseq)
+library(microViz)
+library(vegan)
+library(ggpubr)
+library(RColorBrewer)
+library(gridExtra)
+library(ape)
+library(phytools)
+library(nlme)
+library(corHMM)
+
+`%notin%` <- function(x, y) !(x %in% y)
+
+# ── File paths ───────────────────────────────────────────────────────────────
+path_raw  <- "data/raw/"
+path_proc <- "data/processed/"
+
+dir.create("figures/raw", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## Overview
+
+This script performs microbiome community analysis and phylogenetic comparative methods
+to test associations between gut symbiont dynamics and host colony size.
+
+**Inputs (from `data/processed/`):**
+- `OTUs_AbsAbun.tsv` — filtered OTU table (absolute abundances)
+- `metadata_2025.txt` — merged and annotated metadata
+
+**Inputs (from `data/raw/`):**
+- `Orb_Tax_table.txt` — taxonomy table with manual LCA corrections
+- `MappingFile_Meliponini_Claus.txt` — extended collection metadata
+- `meliponini5genes.nex` — stingless bee phylogeny (Rasmussen & Cameron 2010)
+
+**Outputs (to `data/processed/`):**
+- `phyloseqOBJ.rds` — rarefied and filtered phyloseq object
+- `alpha_table.rds` — alpha diversity table with metadata
+- `metadata_symbionts.rds` — symbiont prevalence merged with metadata
+- `pruned_tree.rds` — ultrametric tree pruned to study species
+- `discrete_Sng.rds` — binary Snodgrassella presence/absence per voucher
+- `discrete_Gill.rds` — binary Gilliamella presence/absence per voucher
+- `discrete_Lacto.rds` — binary Lactobacillus presence/absence per voucher
+- `discrete_Comm.rds` — binary Commensalibacter presence/absence per voucher
+- `unique_all_avg.rds` — species-averaged symbiont data for PGLS
+
+---
+
+# 1. Build Phyloseq Object
+
+## 1.1 Load data
+
+```{r load-data}
+# Load filtered OTU table (absolute abundances, output from script 01)
+OTU_Table <- vroom(paste0(path_proc, "OTUs_AbsAbun.tsv"),
+                   delim = "\t", col_names = TRUE) %>%
+  as.data.frame() %>%
+  column_to_rownames(var = "ASV_ID")
+
+# Load taxonomy (with manual LCA corrections for Neisseriaceae and Orbaceae)
+Tax <- vroom(paste0(path_raw, "Orb_Tax_table.txt"),
+             delim = "\t", col_names = TRUE) %>%
+  separate(col = taxonomy,
+           into = c("Domain", "Phylum", "Class", "Order", "Family", "Genus"),
+           sep  = ";", remove = FALSE) %>%
+  mutate(across(everything(), ~ gsub(" ", "", .))) %>%
+  mutate(across(.cols = c(Domain, Phylum, Class, Order, Family, Genus),
+                .fns  = ~ sub("^[a-z]__", "", .))) %>%
+  select(-taxonomy) %>%
+  column_to_rownames(var = "OTU_ID") %>%
+  as.matrix()
+
+# Load metadata (output from script 01)
+metadata <- vroom(paste0(path_proc, "metadata_2025.txt"),
+                  delim = "\t", col_names = TRUE) %>%
+  as.data.frame()
+
+cat("OTU table:", nrow(OTU_Table), "ASVs x", ncol(OTU_Table), "samples\n")
+cat("Taxonomy:", nrow(Tax), "ASVs\n")
+cat("Metadata:", nrow(metadata), "samples\n")
+```
+
+## 1.2 Build phyloseq object
+
+```{r build-phyloseq}
+# Rename species/genus columns to avoid conflicts with taxonomy slot
+metadata_ps <- metadata %>%
+  rename(Bee_Species = Species, Bee_Genus = Genus) %>%
+  column_to_rownames(var = "sample") %>%
+  sample_data()
+
+OTUs_ps <- otu_table(OTU_Table, taxa_are_rows = TRUE)
+TAXps   <- tax_table(Tax)
+ps0     <- phyloseq(OTUs_ps, TAXps)
+
+# Merge and fix taxonomy
+# microViz cannot handle empty taxonomic levels; upper-level classification is propagated
+phyloseqOBJ_Raw <- merge_phyloseq(ps0, metadata_ps) %>%
+  tax_fix(unknowns = c("uncultured"))
+
+phyloseqOBJ_Raw
+```
+
+## 1.3 Rarefaction curves
+
+```{r rarefaction-curves, fig.width=12, fig.height=8}
+otu_mat      <- as(otu_table(phyloseqOBJ_Raw), "matrix")
+if (taxa_are_rows(phyloseqOBJ_Raw)) otu_mat <- t(otu_mat)
+
+rare_list    <- rarecurve(otu_mat, step = 100,
+                          sample = min(rowSums(otu_mat)), label = FALSE)
+sample_names <- rownames(otu_mat)
+
+rare_df <- map_dfr(seq_along(rare_list), function(i) {
+  tibble(
+    Sample_ID         = sample_names[i],
+    Depth             = attr(rare_list[[i]], "Subsample"),
+    Rarefied_Richness = rare_list[[i]]
+  )
+}) %>%
+  left_join(metadata %>% rename(Sample_ID = sample), by = "Sample_ID")
+
+ggplot(rare_df, aes(x = Depth, y = Rarefied_Richness,
+                    group = Sample_ID, color = Sample_ID)) +
+  geom_line(alpha = 0.8) +
+  facet_wrap(~ Genus) +
+  geom_vline(xintercept = 2500, color = "darkorange", linetype = "dashed") +
+  coord_cartesian(xlim = c(0, 4000)) +
+  labs(x = "Number of reads", y = "Observed richness",
+       title = "Rarefaction curves per sample (dashed line = 2,500 reads)") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggsave("figures/raw/rarefaction_curves.pdf", width = 12, height = 8)
+```
+
+## 1.4 Rarefy to 2,500 reads
+
+```{r rarefy}
+# Distribution of library sizes
+sample_sums_df <- data.frame(
+  SampleID = sample_names(phyloseqOBJ_Raw),
+  Reads    = sample_sums(phyloseqOBJ_Raw)
+)
+
+ggplot(sample_sums_df, aes(x = Reads)) +
+  geom_histogram(binwidth = 400, fill = "cornflowerblue", color = "white") +
+  geom_vline(xintercept = 2500, color = "coral2", linetype = "dashed") +
+  labs(title = "Distribution of library sizes",
+       x = "Reads per sample", y = "Number of samples") +
+  theme_minimal()
+
+set.seed(123)
+# Rarefy to 2,500 reads per sample (seed = 123 for reproducibility)
+phyloseqOBJ_Rarefied <- rarefy_even_depth(
+  phyloseqOBJ_Raw,
+  sample.size = 2500,
+  rngseed     = 123,
+  replace     = FALSE,
+  trimOTUs    = TRUE,
+  verbose     = TRUE
+)
+```
+
+## 1.5 Prevalence filter and taxonomy cleanup
+
+```{r prevalence-filter}
+# Remove very rare ASVs and non-bacterial taxa
+phyloseqOBJ <- phyloseqOBJ_Rarefied %>%
+  tax_filter(
+    min_prevalence           = 0,
+    prev_detection_threshold = 0,
+    min_total_abundance      = 0,
+    min_sample_abundance     = 10,
+    tax_level                = NA
+  ) %>%
+  phyloseq::subset_taxa(
+    Domain != "Eukaryota" &
+    !is.na(Phylum) &
+    Phylum != "Unassigned"
+  )
+
+cat("Final dataset:", ntaxa(phyloseqOBJ), "ASVs x",
+    nsamples(phyloseqOBJ), "samples\n")
+
+# Save phyloseq object for downstream use
+saveRDS(phyloseqOBJ, file = paste0(path_proc, "phyloseqOBJ.rds"))
+```
+
+---
+
+# 2. Alpha Diversity
+
+Alpha diversity (Shannon index and species richness) is estimated by iteratively
+rarefying the unfiltered absolute-abundance table 100 times at a depth of 1,300 reads,
+then averaging across iterations to reduce stochastic variation.
+
+```{r alpha-diversity}
+n_iterations   <- 100
+sequence_depth <- 1300
+alpha_results  <- vector("list", n_iterations)
+S_results      <- vector("list", n_iterations)
+
+set.seed(711)
+
+for (i in seq_len(n_iterations)) {
+  cat("Iteration", i, "of", n_iterations, "\r")
+  rar_otu_temp       <- as.data.frame(vegan::rrarefy(OTU_Table, sequence_depth))
+  alpha_results[[i]] <- as.data.frame(vegan::diversity(t(rar_otu_temp)))
+  S_results[[i]]     <- as.data.frame(vegan::specnumber(t(rar_otu_temp)))
+}
+
+alpha_diversity_table <- data.frame(
+  Richness = round(rowMeans(do.call(cbind, S_results))),
+  Shannon  = rowMeans(do.call(cbind, alpha_results))
+)
+
+# Merge with metadata
+alpha.table <- merge(alpha_diversity_table, metadata,
+                     by.x = "row.names", by.y = "sample")
+
+alpha.table$ColonySize <- factor(alpha.table$ColonySize,
+                                  levels = c("Small", "Medium", "Large",
+                                             "XLarge", "Enormous"))
+alpha.table$Continent  <- factor(alpha.table$Continent,
+                                  levels = c("South_America", "N_C_America",
+                                             "Australia", "Africa", "Asia"))
+alpha.table$Region     <- factor(alpha.table$Region,
+                                  levels = c("Neotropics",
+                                             "Indo-Malay-Australasia",
+                                             "AfroTropics"))
+
+saveRDS(alpha.table, file = paste0(path_proc, "alpha_table.rds"))
+cat("\nAlpha diversity table saved.\n")
+```
+
+## 2.1 Alpha diversity plots
+
+```{r alpha-plots, fig.width=12, fig.height=4}
+A <- ggplot(alpha.table, aes(ColonySize, Richness)) +
+  geom_violin(aes(color = ColonySize)) +
+  geom_boxplot(width = 0.1, color = "grey", alpha = 0.2) +
+  geom_jitter(alpha = 0.5) +
+  theme_classic() +
+  theme(text = element_text(size = 14), legend.position = "none")
+
+B <- ggplot(alpha.table, aes(Continent, Richness)) +
+  geom_violin(aes(color = Continent)) +
+  geom_boxplot(width = 0.1, color = "grey", alpha = 0.2) +
+  geom_jitter(alpha = 0.5) +
+  theme_classic() +
+  theme(text = element_text(size = 14), legend.position = "none")
+
+C <- ggplot(alpha.table, aes(Region, Richness)) +
+  geom_violin(aes(color = Region)) +
+  geom_boxplot(width = 0.1, color = "grey", alpha = 0.2) +
+  geom_jitter(alpha = 0.5) +
+  theme_classic() +
+  theme(text = element_text(size = 14), legend.position = "none")
+
+ggarrange(A, B, C, nrow = 1)
+ggsave("figures/raw/alpha_diversity.pdf", width = 12, height = 4)
+```
+
+---
+
+# 3. Community Composition
+
+## 3.1 PCA (CLR-transformed, family level)
+
+PCA uses the centred log-ratio (CLR) transformation, which is recommended for
+compositional sequencing data.
+
+```{r pca-plot, fig.width=8, fig.height=6}
+pca_plot <- phyloseqOBJ %>%
+  tax_fix(unknowns = c("Incertae_Sedis", "uncultured", "Unknown")) %>%
+  tax_transform("clr", rank = "Genus") %>%
+  ord_calc(method = "PCA") %>%
+  ord_plot(color = "Region", plot_taxa = 1:8,
+           size = "BodySize", alpha = 0.75,
+           auto_caption = 10,
+           tax_lab_style = tax_lab_style(size = 2.5, alpha = 0.75))
+
+pca_plot
+ggsave("figures/raw/PCA_region.pdf", width = 8, height = 6)
+```
+
+## 3.1b PCA loadings — quantify genus contributions to compositional variation
+
+```{r pca-loadings}
+# Save the ordination object separately to extract loadings
+pca_ord <- phyloseqOBJ %>%
+  tax_fix(unknowns = c("Incertae_Sedis", "uncultured", "Unknown")) %>%
+  tax_transform("clr", rank = "Genus") %>%
+  ord_calc(method = "PCA")
+
+# Extract species scores directly from vegan rda internal structure
+# (avoids scores() dispatch issues across microViz/vegan versions)
+rda_obj      <- ord_get(pca_ord)
+eig          <- rda_obj$CA$eig          # eigenvalues
+v            <- rda_obj$CA$v            # raw eigenvectors (taxa × axes)
+# Species scaling = eigenvectors × sqrt(eigenvalue)
+loadings_mat <- sweep(v[, 1:2, drop = FALSE], 2, sqrt(eig[1:2]), "*")
+colnames(loadings_mat) <- c("PC1", "PC2")
+
+# % contribution of each genus to variance along PC1 and PC2
+# (squared loading / sum of squared loadings) × 100
+loading_table <- as.data.frame(loadings_mat) %>%
+  rownames_to_column("Genus") %>%
+  mutate(
+    PC1_loading     = round(PC1, 4),
+    PC1_contrib_pct = round(PC1^2 / sum(PC1^2) * 100, 2),
+    PC2_loading     = round(PC2, 4),
+    PC2_contrib_pct = round(PC2^2 / sum(PC2^2) * 100, 2)
+  ) %>%
+  select(Genus, PC1_loading, PC1_contrib_pct, PC2_loading, PC2_contrib_pct) %>%
+  arrange(desc(abs(PC1_loading)))
+
+cat("=== PCA loadings ranked by |PC1| ===\n")
+print(head(loading_table, 20))
+
+cat("\nTop contributors to PC1 (Gilliamella + Snodgrassella):\n")
+print(head(loading_table, 2))
+cat(sprintf("\nCombined PC1 contribution: %.1f%%\n",
+            sum(head(loading_table, 2)$PC1_contrib_pct)))
+```
+
+## 3.2 PCoA (Bray-Curtis, genus level)
+
+```{r pcoa-plot, fig.width=7, fig.height=6}
+PCoA_region <- phyloseqOBJ %>%
+  tax_agg(rank = "Genus") %>%
+  dist_calc(dist = "bray") %>%
+  ord_calc(method = "PCoA") %>%
+  ord_plot(alpha = 0.6, size = 2, color = "Region") +
+  theme_classic(12) +
+  coord_fixed(0.7) +
+  stat_ellipse(aes(color = Region)) +
+  scale_color_brewer(palette = "Set1")
+
+PCoA_region
+ggsave("figures/raw/PCoA_region.pdf", width = 7, height = 6)
+```
+
+## 3.3 Composition barplot
+
+```{r composition-plots, fig.width=12, fig.height=6}
+# Aggregate to genus level and compute relative abundances
+ps_genus_rel <- tax_glom(phyloseqOBJ, taxrank = "Genus") %>%
+  transform_sample_counts(function(x) x / sum(x))
+
+# Melt to long format (Taxon = bacterial genus; Bee_Genus, Region from sample_data)
+df_comp <- psmelt(ps_genus_rel) %>%
+  rename(Taxon = Genus)
+
+# Identify top 13 genera by mean relative abundance across all samples
+top13 <- df_comp %>%
+  group_by(Taxon) %>%
+  summarise(mean_abun = mean(Abundance), .groups = "drop") %>%
+  arrange(desc(mean_abun)) %>%
+  slice_head(n = 13) %>%
+  pull(Taxon)
+
+# Lump remaining taxa into "Other"
+df_comp <- df_comp %>%
+  mutate(Taxon_plot = factor(if_else(Taxon %in% top13, Taxon, "Other"),
+                             levels = c(top13, "Other")))
+
+# Order samples by bee genus, then sample ID within each genus
+sample_order <- df_comp %>%
+  select(Sample, Bee_Genus) %>%
+  distinct() %>%
+  arrange(Bee_Genus, Sample) %>%
+  pull(Sample)
+
+df_comp$Sample <- factor(df_comp$Sample, levels = sample_order)
+
+# Bacterial taxon color palette (Option B: Set2 + Set1)
+# ── Option A: Tableau-inspired ────────────────────────────────────────────
+# palette_colors <- c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+#                     "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+#                     "#D37295", "#FABFD2", "#8CD17D", "grey70")
+# ── Option B: Set2 + Set1 (RColorBrewer) ──────────────────────────────────
+palette_colors <- c(brewer.pal(8, "Set2"), brewer.pal(5, "Set1"), "grey70")
+# ── Option C: vivid qualitative ───────────────────────────────────────────
+# palette_colors <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00",
+#                     "#A65628", "#F781BF", "#999999", "#66C2A5", "#FC8D62",
+#                     "#8DA0CB", "#E78AC3", "#A6D854", "grey60")
+
+taxon_colors <- setNames(palette_colors, c(top13, "Other"))
+
+# Annotation data: one row per sample, same factor order as main plot
+annot_df <- df_comp %>%
+  select(Sample, Bee_Genus, Region) %>%
+  distinct() %>%
+  mutate(Sample = factor(Sample, levels = levels(df_comp$Sample)))
+
+# Region colors — grayscale
+region_cols <- c("Neotropics"             = "grey80",
+                 "AfroTropics"            = "grey45",
+                 "Indo-Malay-Australasia" = "grey15")
+
+# ── Main barplot ──────────────────────────────────────────────────────────
+p_main <- ggplot(df_comp, aes(x = Sample, y = Abundance, fill = Taxon_plot)) +
+  geom_bar(stat = "identity", width = 0.85) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0, 0)) +
+  scale_fill_manual(values = taxon_colors) +
+  labs(x = NULL, y = "Relative Abundance", fill = "Genus") +
+  theme_bw(base_size = 10) +
+  theme(axis.text.x   = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 4),
+        panel.grid    = element_blank(),
+        panel.border  = element_blank(),
+        axis.line.y   = element_line(colour = "black"),
+        legend.position = "right",
+        legend.text   = element_text(face = "italic", size = 8),
+        plot.margin   = margin(5, 5, 2, 5))
+
+# ── Region annotation strip — grayscale ──────────────────────────────────
+p_region <- ggplot(annot_df, aes(x = Sample, y = 1, fill = Region)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_manual(values = region_cols, name = "Region") +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(y = "Region") +
+  theme_void() +
+  theme(legend.position  = "right",
+        legend.key.size  = unit(0.5, "cm"),
+        legend.text      = element_text(size = 9),
+        legend.title     = element_text(size = 9, face = "bold"),
+        axis.title.y     = element_text(size = 7, angle = 0, vjust = 0.5, hjust = 1),
+        plot.margin      = margin(0, 5, 2, 5))
+
+# ── Combine ───────────────────────────────────────────────────────────────
+legend_region  <- cowplot::get_legend(p_region)
+p_region_noleg <- p_region + theme(legend.position = "none")
+
+left_col <- cowplot::plot_grid(
+  p_main + theme(legend.position = "none"),
+  p_region_noleg,
+  ncol = 1, align = "v", axis = "lr",
+  rel_heights = c(8, 0.4)
+)
+
+right_col <- cowplot::plot_grid(
+  cowplot::get_legend(p_main),
+  legend_region,
+  ncol = 1, rel_heights = c(3, 1)
+)
+
+cowplot::plot_grid(left_col, right_col, ncol = 2, rel_widths = c(10, 1.5))
+
+ggsave("figures/raw/composition_barplot.pdf", width = 12, height = 7)
+```
+
+## 3.4 Top taxa by abundance and prevalence
+
+```{r top-taxa}
+ps.genus  <- phyloseqOBJ %>% tax_agg(rank = "Genus")
+genus_mat <- as.data.frame(t(ps.genus@otu_table))
+
+# Top genera by total abundance
+top_abundance <- data.frame(
+  Genus          = colnames(genus_mat),
+  TotalAbundance = colSums(genus_mat)
+) %>%
+  arrange(desc(TotalAbundance)) %>%
+  mutate(RelAbundance_pct = TotalAbundance / sum(TotalAbundance) * 100)
+
+# Top genera by prevalence
+top_prevalence <- data.frame(
+  Genus             = colnames(genus_mat),
+  N_Samples_Present = colSums(genus_mat > 0)
+) %>%
+  arrange(desc(N_Samples_Present)) %>%
+  mutate(Prevalence_pct = N_Samples_Present / nrow(genus_mat) * 100)
+
+# Combined table
+top_combined <- top_abundance %>%
+  left_join(top_prevalence, by = "Genus") %>%
+  arrange(desc(TotalAbundance))
+
+cat("Top 20 genera by abundance and prevalence:\n")
+print(head(top_combined, 20))
+```
+
+---
+
+# 4. PERMANOVA and Mantel Test
+
+## 4.1 PERMANOVA
+
+Tests whether microbial community composition differs significantly across geographic
+regions using Bray-Curtis distances (999 permutations).
+
+```{r permanova}
+dists_bray <- tax_transform(phyloseqOBJ, trans = "identity", rank = "Family") %>%
+  dist_calc("bray")
+
+bray_perm <- dists_bray %>%
+  dist_permanova(
+    seed        = 1234,
+    n_processes = 2,
+    n_perms     = 999,
+    variables   = "Region"
+  )
+
+perm_get(bray_perm) %>% as.data.frame()
+```
+
+## 4.2 Mantel test: microbiome dissimilarity vs. body size
+
+```{r mantel-test}
+PCA_data <- phyloseqOBJ %>%
+  tax_fix(unknowns = c("Incertae_Sedis")) %>%
+  tax_transform("clr", rank = "Genus")
+
+clr_bray_dist <- vegdist(PCA_data@counts, method = "bray")
+
+# Align body size vector with samples in PCA_data
+metadata_ps_df <- as(sample_data(phyloseqOBJ), "data.frame")
+BodySize_df    <- metadata_ps_df[rownames(PCA_data@counts), "BodySize", drop = FALSE]
+bodysize_dist  <- dist(BodySize_df$BodySize, method = "euclidean")
+
+# Mantel test (Spearman, 9,999 permutations)
+mantel_result <- mantel(clr_bray_dist, bodysize_dist,
+                        method = "spearman", permutations = 9999, na.rm = TRUE)
+mantel_result
+```
+
+---
+
+# 5. Phylogenetic Comparative Methods
+
+This section tests whether the relative abundance of four focal gut symbionts
+(*Snodgrassella*, *Gilliamella*, *Lactobacillus*, *Commensalibacter*) is associated
+with host colony size, while accounting for shared evolutionary history via
+phylogenetic generalized least squares (PGLS).
+
+## 5.1 Prepare symbiont prevalence data
+
+```{r prepare-symbiont-data}
+# Aggregate rarefied phyloseq to genus level and convert to relative abundances
+Prevalence_Genus <- as.data.frame(make_relative(t(ps.genus@otu_table)))
+
+# Extract four focal symbionts (all identified at genus level)
+Prev_Snodgrassella    <- Prevalence_Genus %>% select(Snodgrassella)    %>% rownames_to_column("SampleID")
+Prev_Gilliamella      <- Prevalence_Genus %>% select(Gilliamella)      %>% rownames_to_column("SampleID")
+Prev_Lactobacillus    <- Prevalence_Genus %>% select(Lactobacillus)    %>% rownames_to_column("SampleID")
+Prev_Commensalibacter <- Prevalence_Genus %>% select(Commensalibacter) %>% rownames_to_column("SampleID")
+
+Prev_Symbionts <- Prev_Snodgrassella %>%
+  left_join(Prev_Gilliamella,      by = "SampleID") %>%
+  left_join(Prev_Lactobacillus,    by = "SampleID") %>%
+  left_join(Prev_Commensalibacter, by = "SampleID")
+
+cat("Relative abundance table — first rows:\n")
+head(Prev_Symbionts)
+```
+
+## 5.2 Load and prepare phylogenetic tree
+
+The phylogeny is from Rasmussen & Cameron (2010). `chronos()` forces it to be
+ultrametric, which is required for ancestral state reconstruction.
+
+```{r load-tree}
+meli.tree           <- read.nexus(paste0(path_raw, "meliponini5genes.nex"))
+meli.tree.one       <- meli.tree[[1]]
+meli.tree.one.ultra <- chronos(phy = meli.tree.one, lambda = 1)
+
+plot(meli.tree.one.ultra, cex = 0.4,
+     main = expression(paste("Ultrametric tree, ", lambda, " = 1")))
+```
+
+```{r alternative-lambda, eval=FALSE}
+# --- ALTERNATIVE APPROACH: comparing lambda values (0 to 1) ---
+# All values yielded consistent topologies; lambda = 1 was retained.
+# bee.tree.ult0  <- chronos(phy = meli.tree.one, lambda = 0)
+# bee.tree.ult02 <- chronos(phy = meli.tree.one, lambda = 0.2)
+# bee.tree.ult04 <- chronos(phy = meli.tree.one, lambda = 0.4)
+# bee.tree.ult06 <- chronos(phy = meli.tree.one, lambda = 0.6)
+# bee.tree.ult08 <- chronos(phy = meli.tree.one, lambda = 0.8)
+```
+
+## 5.3 Match tree tips to metadata and prune tree
+
+```{r match-and-prune}
+# Extract voucher numbers from tip labels
+df_tree_voucher <- data.frame(VoucherNumber = meli.tree.one.ultra$tip.label) %>%
+  mutate(CollectionID = str_extract(VoucherNumber, "\\d+"))
+
+# Merge symbiont data with metadata and voucher mapping
+metadata_symbionts <- merge(
+  Prev_Symbionts %>%
+    left_join(metadata %>% rename(SampleID = sample), by = "SampleID"),
+  df_tree_voucher,
+  by.x = "CollectionID", by.y = "CollectionID"
+) %>%
+  mutate(CollectionID = as.character(CollectionID))
+
+saveRDS(metadata_symbionts, file = paste0(path_proc, "metadata_symbionts.rds"))
+
+cat("Unique bee species:", n_distinct(metadata_symbionts$Species), "\n")
+
+# Prune tree to matched samples
+tips_to_keep <- unique(metadata_symbionts$VoucherNumber)
+pruned_tree  <- drop.tip(
+  meli.tree.one.ultra,
+  meli.tree.one.ultra$tip.label[!(meli.tree.one.ultra$tip.label %in% tips_to_keep)]
+)
+
+class(pruned_tree) <- "phylo"
+
+cat("Tips in pruned tree:", length(pruned_tree$tip.label), "\n")
+plot(pruned_tree, cex = 0.5)
+
+saveRDS(pruned_tree, file = paste0(path_proc, "pruned_tree.rds"))
+```
+
+## 5.4 Average symbiont prevalence per voucher and binarize
+
+Symbiont relative abundance is averaged per voucher (species), then converted to
+binary presence/absence using a threshold of 0.1%, following the methods described
+in the paper.
+
+```{r binarize-symbionts}
+averages_Snodgrassella    <- aggregate(Snodgrassella    ~ VoucherNumber, data = metadata_symbionts, FUN = mean)
+averages_Gilliamella      <- aggregate(Gilliamella      ~ VoucherNumber, data = metadata_symbionts, FUN = mean)
+averages_Lactobacillus    <- aggregate(Lactobacillus    ~ VoucherNumber, data = metadata_symbionts, FUN = mean)
+averages_Commensalibacter <- aggregate(Commensalibacter ~ VoucherNumber, data = metadata_symbionts, FUN = mean)
+
+# Threshold of 0.1% (0.001) to minimize false positives from cross-contamination
+averages_Snodgrassella$Discrete_Snodgrassella       <- as.numeric(averages_Snodgrassella$Snodgrassella       > 0.001)
+averages_Gilliamella$Discrete_Gilliamella           <- as.numeric(averages_Gilliamella$Gilliamella           > 0.001)
+averages_Lactobacillus$Discrete_Lactobacillus       <- as.numeric(averages_Lactobacillus$Lactobacillus       > 0.001)
+averages_Commensalibacter$Discrete_Commensalibacter <- as.numeric(averages_Commensalibacter$Commensalibacter > 0.001)
+
+discrete_Sng   <- averages_Snodgrassella[,    c("VoucherNumber", "Discrete_Snodgrassella")]
+discrete_Gill  <- averages_Gilliamella[,      c("VoucherNumber", "Discrete_Gilliamella")]
+discrete_Lacto <- averages_Lactobacillus[,    c("VoucherNumber", "Discrete_Lactobacillus")]
+discrete_Comm  <- averages_Commensalibacter[, c("VoucherNumber", "Discrete_Commensalibacter")]
+
+saveRDS(discrete_Sng,   file = paste0(path_proc, "discrete_Sng.rds"))
+saveRDS(discrete_Gill,  file = paste0(path_proc, "discrete_Gill.rds"))
+saveRDS(discrete_Lacto, file = paste0(path_proc, "discrete_Lacto.rds"))
+saveRDS(discrete_Comm,  file = paste0(path_proc, "discrete_Comm.rds"))
+```
+
+## 5.5 Prepare PGLS data frames
+
+```{r prepare-pgls}
+df_subset <- metadata_symbionts[, c("VoucherNumber", "ColonySize_U")] %>%
+  distinct()
+
+averages_merged <- merge(df_subset, averages_Snodgrassella, by = "VoucherNumber") %>%
+  merge(averages_Gilliamella,      by = "VoucherNumber") %>%
+  merge(averages_Lactobacillus,    by = "VoucherNumber") %>%
+  merge(averages_Commensalibacter, by = "VoucherNumber")
+
+# Remove duplicates (PGLS requires one row per tree tip)
+unique_all_avg <- unique(averages_merged)
+
+cat("Rows in merged table:", nrow(averages_merged),
+    "| Unique rows:", nrow(unique_all_avg), "\n")
+
+saveRDS(unique_all_avg, file = paste0(path_proc, "unique_all_avg.rds"))
+```
+
+## 5.6 PGLS: symbiont relative abundance vs. colony size
+
+```{r pgls-models}
+# Base alignment: match all 29 species to tree, add log colony size
+unique_all_avg <- unique_all_avg %>%
+  mutate(ColonySize_log = log(ColonySize_U)) %>%
+  filter(!is.na(ColonySize_log), !is.na(VoucherNumber))
+
+common      <- intersect(pruned_tree$tip.label, unique_all_avg$VoucherNumber)
+pruned_pgls <- drop.tip(pruned_tree, setdiff(pruned_tree$tip.label, common))
+unique_all_avg <- unique_all_avg[match(common, unique_all_avg$VoucherNumber), ]
+
+# PGLS uses all species with any detectable symbiont (> 0); the 0.1% threshold is
+# reserved for binary presence/absence classification (Pagel's test, ancestral reconstruction).
+# Species with zero abundance are shown at 1e-04 floor in the plot for visibility on log scale.
+
+# Snodgrassella vs. Colony Size
+snod_df <- unique_all_avg %>%
+  filter(Snodgrassella > 0) %>%
+  mutate(Snodgrassella_log = log(Snodgrassella))
+common_snod  <- intersect(pruned_pgls$tip.label, snod_df$VoucherNumber)
+pruned_snod  <- drop.tip(pruned_pgls, setdiff(pruned_pgls$tip.label, common_snod))
+snod_df      <- snod_df[match(common_snod, snod_df$VoucherNumber), ]
+spp_snod     <- snod_df$VoucherNumber
+corBM_snod   <- corBrownian(phy = pruned_snod, form = ~spp_snod)
+pgls_Sn_CS   <- gls(Snodgrassella_log ~ ColonySize_log,
+                     data = snod_df, correlation = corBM_snod)
+summary(pgls_Sn_CS)
+
+# Gilliamella vs. Colony Size
+gill_df <- unique_all_avg %>%
+  filter(Gilliamella > 0) %>%
+  mutate(Gilliamella_log = log(Gilliamella))
+common_gill  <- intersect(pruned_pgls$tip.label, gill_df$VoucherNumber)
+pruned_gill  <- drop.tip(pruned_pgls, setdiff(pruned_pgls$tip.label, common_gill))
+gill_df      <- gill_df[match(common_gill, gill_df$VoucherNumber), ]
+spp_gill     <- gill_df$VoucherNumber
+corBM_gill   <- corBrownian(phy = pruned_gill, form = ~spp_gill)
+pgls_Gill_CS <- gls(Gilliamella_log ~ ColonySize_log,
+                     data = gill_df, correlation = corBM_gill)
+summary(pgls_Gill_CS)
+
+# Lactobacillus vs. Colony Size
+lacto_df <- unique_all_avg %>%
+  filter(Lactobacillus > 0) %>%
+  mutate(Lactobacillus_log = log(Lactobacillus))
+common_lacto  <- intersect(pruned_pgls$tip.label, lacto_df$VoucherNumber)
+pruned_lacto  <- drop.tip(pruned_pgls, setdiff(pruned_pgls$tip.label, common_lacto))
+lacto_df      <- lacto_df[match(common_lacto, lacto_df$VoucherNumber), ]
+spp_lacto     <- lacto_df$VoucherNumber
+corBM_lacto   <- corBrownian(phy = pruned_lacto, form = ~spp_lacto)
+pgls_Lacto_CS <- gls(Lactobacillus_log ~ ColonySize_log,
+                      data = lacto_df, correlation = corBM_lacto)
+summary(pgls_Lacto_CS)
+
+# Commensalibacter vs. Colony Size
+comm_df <- unique_all_avg %>%
+  filter(Commensalibacter > 0) %>%
+  mutate(Commensalibacter_log = log(Commensalibacter))
+common_comm  <- intersect(pruned_pgls$tip.label, comm_df$VoucherNumber)
+pruned_comm  <- drop.tip(pruned_pgls, setdiff(pruned_pgls$tip.label, common_comm))
+comm_df      <- comm_df[match(common_comm, comm_df$VoucherNumber), ]
+spp_comm     <- comm_df$VoucherNumber
+corBM_comm   <- corBrownian(phy = pruned_comm, form = ~spp_comm)
+pgls_Comm_CS <- gls(Commensalibacter_log ~ ColonySize_log,
+                     data = comm_df, correlation = corBM_comm)
+summary(pgls_Comm_CS)
+```
+
+## 5.7 Visualize PGLS results
+
+```{r pgls-plots, fig.width=10, fig.height=5}
+# All 29 species shown; zeros mapped to 1e-04 floor for visibility on log scale.
+# Smoothing line and R\u00b2 include all species (with floor values), matching the full dataset.
+unique_all_avg <- unique_all_avg %>%
+  mutate(
+    Snod_floor  = pmax(Snodgrassella,    1e-04),
+    Gill_floor  = pmax(Gilliamella,      1e-04),
+    Lacto_floor = pmax(Lactobacillus,    1e-04),
+    Comm_floor  = pmax(Commensalibacter, 1e-04)
+  )
+
+make_pgls_plot_rel <- function(df, floor_col, mdl, fill_col, label) {
+  p_val <- summary(mdl)$tTable[2, 4]
+  r2    <- summary(lm(as.formula(paste("log(", floor_col, ") ~ log(ColonySize_U)")),
+                      data = df))$r.squared
+  ggplot(df, aes(x = ColonySize_U, y = .data[[floor_col]])) +
+    geom_point(shape = 21, fill = fill_col, size = 3, alpha = 0.8) +
+    geom_smooth(method = "lm", se = FALSE, color = "grey", linetype = "dashed") +
+    scale_x_log10() + scale_y_log10() +
+    annotation_logticks() +
+    annotate("text", x = Inf, y = Inf,
+             label = paste("PGLS p =", signif(p_val, 3), "\nR\u00b2 =", round(r2, 2)),
+             hjust = 1.1, vjust = 1.5, size = 3.5, fontface = "italic") +
+    labs(x = "Colony Size",
+         y = bquote(italic(.(label)) ~ "proportion")) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank(), panel.border = element_blank(),
+          axis.line = element_line(colour = "black"))
+}
+
+SnodPlot  <- make_pgls_plot_rel(unique_all_avg, "Snod_floor",  pgls_Sn_CS,   "#e54b4b", "Snodgrassella")
+GillPlot  <- make_pgls_plot_rel(unique_all_avg, "Gill_floor",  pgls_Gill_CS, "#2b9dce", "Gilliamella")
+LactoPlot <- make_pgls_plot_rel(unique_all_avg, "Lacto_floor", pgls_Lacto_CS,"#6ab187", "Lactobacillus")
+CommPlot  <- make_pgls_plot_rel(unique_all_avg, "Comm_floor",  pgls_Comm_CS, "#f0a500", "Commensalibacter")
+
+grid.arrange(SnodPlot, GillPlot, LactoPlot, CommPlot, nrow = 1)
+ggsave("figures/raw/PGLS_relAbundance_colonySize.pdf", width = 18, height = 5)
+```
+
+---
+
+## 5.8 Symbiont relative abundance by bee genus
+
+```{r symbiont-boxplots-genus, fig.width=14, fig.height=8}
+symbiont_colors <- c("Snodgrassella"    = "#e54b4b",
+                     "Gilliamella"      = "#2b9dce",
+                     "Lactobacillus"    = "#6ab187",
+                     "Commensalibacter" = "#f0a500")
+
+# Pivot to long format
+symb_long <- metadata_symbionts %>%
+  select(SampleID, Genus, Snodgrassella, Gilliamella,
+         Lactobacillus, Commensalibacter) %>%
+  pivot_longer(cols      = c(Snodgrassella, Gilliamella,
+                              Lactobacillus, Commensalibacter),
+               names_to  = "Symbiont",
+               values_to = "RelAbun") %>%
+  mutate(Symbiont = factor(Symbiont, levels = names(symbiont_colors)))
+
+# Order bee genera by median Snodgrassella relative abundance
+genus_order_symb <- symb_long %>%
+  filter(Symbiont == "Snodgrassella") %>%
+  group_by(Genus) %>%
+  summarise(med = median(RelAbun, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(med)) %>%
+  pull(Genus)
+
+symb_long$Genus <- factor(symb_long$Genus, levels = genus_order_symb)
+
+ggplot(symb_long, aes(x = Genus, y = RelAbun + 1e-04,
+                       fill = Symbiont, color = Symbiont)) +
+  geom_boxplot(alpha = 0.35, outlier.shape = NA, width = 0.6) +
+  geom_jitter(width = 0.15, size = 0.7, alpha = 0.5) +
+  scale_y_log10(labels = scales::percent_format(accuracy = 0.01)) +
+  scale_fill_manual(values  = symbiont_colors) +
+  scale_color_manual(values = symbiont_colors) +
+  facet_wrap(~ Symbiont, nrow = 2, scales = "free_y") +
+  labs(x = NULL, y = "Relative Abundance (log scale)") +
+  theme_bw(base_size = 11) +
+  theme(axis.text.x      = element_text(angle = 45, hjust = 1, face = "italic"),
+        panel.grid.minor = element_blank(),
+        strip.text       = element_text(face = "italic"),
+        legend.position  = "none")
+
+ggsave("figures/raw/symbiont_relAbun_byGenus_boxplots.pdf", width = 14, height = 8)
+```
+
+---
+
+# 6. Pagel's Binary Trait Correlation Tests
+
+## 6.1 Prepare categorical data
+
+```{r pagel-prep}
+# Merge binary presence/absence for all four symbionts into a single table.
+# make.unique() ensures row names are unique in case any VoucherNumber appears
+# more than once after merging (required by plotTree.datamatrix and fitPagel).
+discrete_all <- merge(discrete_Sng,   discrete_Gill,  by = "VoucherNumber") %>%
+  merge(discrete_Lacto, by = "VoucherNumber") %>%
+  merge(discrete_Comm,  by = "VoucherNumber") %>%
+  mutate(VoucherNumber = make.unique(as.character(VoucherNumber))) %>%
+  column_to_rownames(var = "VoucherNumber")
+
+
+averages_merged_filtered_unique <- discrete_all %>%
+  mutate(
+    Discrete_Snodgrassella    = factor(Discrete_Snodgrassella,    levels = c(0,1), labels = c("S0",  "S1")),
+    Discrete_Gilliamella      = factor(Discrete_Gilliamella,      levels = c(0,1), labels = c("G0",  "G1")),
+    Discrete_Lactobacillus    = factor(Discrete_Lactobacillus,    levels = c(0,1), labels = c("L0",  "L1")),
+    Discrete_Commensalibacter = factor(Discrete_Commensalibacter, levels = c(0,1), labels = c("C0",  "C1"))
+  )
+
+# Plot phylogeny with binary trait matrix for all four symbionts
+Binary_Symbionts <- plotTree.datamatrix(
+  pruned_tree,
+  averages_merged_filtered_unique,
+  fsize = 0.5, yexp = 1, header = FALSE, xexp = 1.45,
+  palettes = c("Reds", "Blues", "Greens", "Oranges")
+)
+```
+
+## 6.2 Snodgrassella vs. Gilliamella
+
+```{r pagel-snod-gill}
+Snodgrassella_Dis_mode <- setNames(averages_merged_filtered_unique[, 1],
+                                    rownames(averages_merged_filtered_unique))
+Gilliamella_Dis_mode      <- setNames(averages_merged_filtered_unique[, 2],
+                                    rownames(averages_merged_filtered_unique))
+
+Symbionts.Dis.fit <- fitPagel(pruned_tree, Snodgrassella_Dis_mode, Gilliamella_Dis_mode)
+print(Symbionts.Dis.fit)
+
+plot(Symbionts.Dis.fit, signif = 4, cex.main = 1, cex.sub = 0.8,
+     cex.traits = 0.7, cex.rates = 0.7, lwd = 1)
+```
+
+## 6.3 Snodgrassella vs. colony size
+
+```{r pagel-snod-colonysize}
+median_cs <- median(unique_all_avg$ColonySize_U, na.rm = TRUE)
+
+discrete_snod_colsize <- unique_all_avg %>%
+  select(VoucherNumber, Discrete_Snodgrassella, ColonySize_U) %>%
+  mutate(Discrete_ColonySize = ifelse(ColonySize_U > median_cs, "Large", "Small")) %>%
+  select(VoucherNumber, Discrete_Snodgrassella, Discrete_ColonySize) %>%
+  as.data.frame() %>%
+  remove_rownames() %>%
+  column_to_rownames(var = "VoucherNumber")
+
+Snodgrassella_Dis_mode <- setNames(discrete_snod_colsize$Discrete_Snodgrassella,
+                                    rownames(discrete_snod_colsize))
+ColonySize_Dis_mode    <- setNames(discrete_snod_colsize$Discrete_ColonySize,
+                                    rownames(discrete_snod_colsize))
+
+Snod.Cs.Di.fit <- fitPagel(pruned_tree, Snodgrassella_Dis_mode, ColonySize_Dis_mode)
+print(Snod.Cs.Di.fit)
+plot(Snod.Cs.Di.fit, signif = 4, cex.main = 1, cex.sub = 0.8,
+     cex.traits = 0.7, cex.rates = 0.7, lwd = 1)
+```
+
+## 6.4 Gilliamella vs. colony size
+
+```{r pagel-gill-colonysize}
+discrete_gill_colsize <- unique_all_avg %>%
+  select(VoucherNumber, Discrete_Gilliamella, ColonySize_U) %>%
+  mutate(Discrete_ColonySize = ifelse(ColonySize_U > median_cs, "Large", "Small")) %>%
+  select(VoucherNumber, Discrete_Gilliamella, Discrete_ColonySize) %>%
+  as.data.frame() %>%
+  remove_rownames() %>%
+  column_to_rownames(var = "VoucherNumber")
+
+Gilliamella_Dis_mode   <- setNames(discrete_gill_colsize$Discrete_Gilliamella,
+                                 rownames(discrete_gill_colsize))
+ColonySize_Dis_mode <- setNames(discrete_gill_colsize$Discrete_ColonySize,
+                                 rownames(discrete_gill_colsize))
+
+Gilli.Cs.Di.fit <- fitPagel(pruned_tree, Gilliamella_Dis_mode, ColonySize_Dis_mode)
+print(Gilli.Cs.Di.fit)
+plot(Gilli.Cs.Di.fit, signif = 4, cex.main = 1, cex.sub = 0.8,
+     cex.traits = 0.7, cex.rates = 0.7, lwd = 1)
+```
+
+## 6.5 Lactobacillus vs. colony size
+
+```{r pagel-lacto-colonysize}
+discrete_lacto_colsize <- unique_all_avg %>%
+  select(VoucherNumber, Discrete_Lactobacillus, ColonySize_U) %>%
+  mutate(Discrete_ColonySize = ifelse(ColonySize_U > median_cs, "Large", "Small")) %>%
+  select(VoucherNumber, Discrete_Lactobacillus, Discrete_ColonySize) %>%
+  as.data.frame() %>%
+  remove_rownames() %>%
+  column_to_rownames(var = "VoucherNumber")
+
+Lactobacillus_Dis_mode <- setNames(discrete_lacto_colsize$Discrete_Lactobacillus,
+                                    rownames(discrete_lacto_colsize))
+ColonySize_Dis_mode    <- setNames(discrete_lacto_colsize$Discrete_ColonySize,
+                                    rownames(discrete_lacto_colsize))
+
+if (length(unique(Lactobacillus_Dis_mode)) < 2) {
+  cat("Lactobacillus is monomorphic across tree species (all present or all absent).",
+      "\nPagel's test is not applicable.\n")
+} else {
+  Lacto.Cs.Di.fit <- fitPagel(pruned_tree, Lactobacillus_Dis_mode, ColonySize_Dis_mode)
+  print(Lacto.Cs.Di.fit)
+  plot(Lacto.Cs.Di.fit, signif = 4, cex.main = 1, cex.sub = 0.8,
+       cex.traits = 0.7, cex.rates = 0.7, lwd = 1)
+}
+```
+
+## 6.6 Commensalibacter vs. colony size
+
+```{r pagel-comm-colonysize}
+discrete_comm_colsize <- unique_all_avg %>%
+  select(VoucherNumber, Discrete_Commensalibacter, ColonySize_U) %>%
+  mutate(Discrete_ColonySize = ifelse(ColonySize_U > median_cs, "Large", "Small")) %>%
+  select(VoucherNumber, Discrete_Commensalibacter, Discrete_ColonySize) %>%
+  as.data.frame() %>%
+  remove_rownames() %>%
+  column_to_rownames(var = "VoucherNumber")
+
+Commensalibacter_Dis_mode <- setNames(discrete_comm_colsize$Discrete_Commensalibacter,
+                                       rownames(discrete_comm_colsize))
+ColonySize_Dis_mode       <- setNames(discrete_comm_colsize$Discrete_ColonySize,
+                                       rownames(discrete_comm_colsize))
+
+if (length(unique(Commensalibacter_Dis_mode)) < 2) {
+  cat("Commensalibacter is monomorphic across tree species (all present or all absent).",
+      "\nPagel's test is not applicable.\n")
+} else {
+  Comm.Cs.Di.fit <- fitPagel(pruned_tree, Commensalibacter_Dis_mode, ColonySize_Dis_mode)
+  print(Comm.Cs.Di.fit)
+  plot(Comm.Cs.Di.fit, signif = 4, cex.main = 1, cex.sub = 0.8,
+       cex.traits = 0.7, cex.rates = 0.7, lwd = 1)
+}
+```
+
+---
+
+# 7. Phylogenetic ANOVA
+
+```{r phylo-anova}
+discrete_all$Discrete_Snodgrassella    <- as.factor(discrete_all$Discrete_Snodgrassella)
+discrete_all$Discrete_Gilliamella      <- as.factor(discrete_all$Discrete_Gilliamella)
+discrete_all$Discrete_Lactobacillus    <- as.factor(discrete_all$Discrete_Lactobacillus)
+discrete_all$Discrete_Commensalibacter <- as.factor(discrete_all$Discrete_Commensalibacter)
+
+anova_snod <- phylANOVA(pruned_tree,
+                         discrete_all$Discrete_Snodgrassella,
+                         averages_merged$ColonySize_U,
+                         nsim = 1000)
+
+anova_gill  <- phylANOVA(pruned_tree,
+                         discrete_all$Discrete_Gilliamella,
+                         averages_merged$ColonySize_U,
+                         nsim = 1000)
+
+print(anova_snod)
+print(anova_gill)
+
+if (length(levels(discrete_all$Discrete_Lactobacillus)) >= 2) {
+  anova_lacto <- phylANOVA(pruned_tree,
+                            discrete_all$Discrete_Lactobacillus,
+                            averages_merged$ColonySize_U,
+                            nsim = 1000)
+  print(anova_lacto)
+} else {
+  cat("Lactobacillus is monomorphic — phylANOVA not applicable.\n")
+  anova_lacto <- NULL
+}
+
+if (length(levels(discrete_all$Discrete_Commensalibacter)) >= 2) {
+  anova_comm <- phylANOVA(pruned_tree,
+                           discrete_all$Discrete_Commensalibacter,
+                           averages_merged$ColonySize_U,
+                           nsim = 1000)
+  print(anova_comm)
+} else {
+  cat("Commensalibacter is monomorphic — phylANOVA not applicable.\n")
+  anova_comm <- NULL
+}
+```
+
+```{r phylo-anova-plots, fig.width=10, fig.height=5}
+# Add colony size to binary symbiont table for plotting
+averages_merged_filtered_unique$VoucherNumber <- rownames(averages_merged_filtered_unique)
+averages_merged_bs_unique <- averages_merged[!duplicated(averages_merged$VoucherNumber), ]
+
+averages_merged_filtered_unique_CS <- merge(
+  averages_merged_filtered_unique,
+  averages_merged_bs_unique[, c("VoucherNumber", "ColonySize_U")],
+  by = "VoucherNumber"
+) %>% column_to_rownames(var = "VoucherNumber")
+
+Discrete_Snod_plot <- averages_merged_filtered_unique_CS %>%
+  ggplot(aes(x = ColonySize_U,
+             y = factor(Discrete_Snodgrassella, labels = c("Absent", "Present")),
+             fill = factor(Discrete_Snodgrassella))) +
+  geom_boxplot(width = 0.5, alpha = 0.5, outlier.shape = NA) +
+  geom_jitter(aes(color = factor(Discrete_Snodgrassella)),
+              width = 0.1, height = 0.1, alpha = 0.6, size = 1.5) +
+  scale_x_log10() +
+  scale_fill_manual(values  = c("white", "#e54b4b")) +
+  scale_color_manual(values = c("grey",  "#e54b4b")) +
+  labs(x = "Colony Size (log scale)", y = "Snodgrassella Presence") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  coord_flip()
+
+Discrete_Gill_plot <- averages_merged_filtered_unique_CS %>%
+  ggplot(aes(x = ColonySize_U,
+             y = factor(Discrete_Gilliamella, labels = c("Absent", "Present")),
+             fill = factor(Discrete_Gilliamella))) +
+  geom_boxplot(width = 0.5, alpha = 0.5, outlier.shape = NA) +
+  geom_jitter(aes(color = factor(Discrete_Gilliamella)),
+              width = 0.1, height = 0.1, alpha = 0.6, size = 1.5) +
+  scale_x_log10() +
+  scale_fill_manual(values  = c("white", "#2b9dce")) +
+  scale_color_manual(values = c("grey",  "#2b9dce")) +
+  labs(x = "Colony Size (log scale)", y = "Gilliamella Presence") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  coord_flip()
+
+plot_list <- list(SnodPlot, Discrete_Snod_plot, GillPlot, Discrete_Gill_plot)
+
+if (!is.null(anova_lacto)) {
+  Discrete_Lacto_plot <- averages_merged_filtered_unique_CS %>%
+    ggplot(aes(x = ColonySize_U,
+               y = factor(Discrete_Lactobacillus, labels = c("Absent", "Present")),
+               fill = factor(Discrete_Lactobacillus))) +
+    geom_boxplot(width = 0.5, alpha = 0.5, outlier.shape = NA) +
+    geom_jitter(aes(color = factor(Discrete_Lactobacillus)),
+                width = 0.1, height = 0.1, alpha = 0.6, size = 1.5) +
+    scale_x_log10() +
+    scale_fill_manual(values  = c("white", "#6ab187")) +
+    scale_color_manual(values = c("grey",  "#6ab187")) +
+    labs(x = "Colony Size (log scale)", y = "Lactobacillus Presence") +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    coord_flip()
+  plot_list <- c(plot_list, list(LactoPlot, Discrete_Lacto_plot))
+}
+
+if (!is.null(anova_comm)) {
+  Discrete_Comm_plot <- averages_merged_filtered_unique_CS %>%
+    ggplot(aes(x = ColonySize_U,
+               y = factor(Discrete_Commensalibacter, labels = c("Absent", "Present")),
+               fill = factor(Discrete_Commensalibacter))) +
+    geom_boxplot(width = 0.5, alpha = 0.5, outlier.shape = NA) +
+    geom_jitter(aes(color = factor(Discrete_Commensalibacter)),
+                width = 0.1, height = 0.1, alpha = 0.6, size = 1.5) +
+    scale_x_log10() +
+    scale_fill_manual(values  = c("white", "#f0a500")) +
+    scale_color_manual(values = c("grey",  "#f0a500")) +
+    labs(x = "Colony Size (log scale)", y = "Commensalibacter Presence") +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    coord_flip()
+  plot_list <- c(plot_list, list(CommPlot, Discrete_Comm_plot))
+}
+
+do.call(grid.arrange, c(plot_list, list(nrow = length(plot_list) / 2)))
+ggsave("figures/raw/phyloANOVA_colonySize.pdf", width = 10,
+       height = 4 * length(plot_list) / 2)
+```
+
+---
+
+# 8. Ancestral State Reconstruction
+
+## 8.1 Model selection
+
+```{r model-selection}
+snod.mode  <- setNames(as.factor(discrete_Sng[, 2]),   discrete_Sng$VoucherNumber)
+gill.mode   <- setNames(as.factor(discrete_Gill[, 2]),  discrete_Gill$VoucherNumber)
+lacto.mode <- setNames(as.factor(discrete_Lacto[, 2]), discrete_Lacto$VoucherNumber)
+comm.mode  <- setNames(as.factor(discrete_Comm[, 2]),  discrete_Comm$VoucherNumber)
+
+cols_snod  <- setNames(c("white", "salmon"),   levels(snod.mode))
+cols_gill   <- setNames(c("white", "#2b9dce"),  levels(gill.mode))
+cols_lacto <- setNames(c("white", "#6ab187"),  levels(lacto.mode))
+cols_comm  <- setNames(c("white", "#f0a500"),  levels(comm.mode))
+
+fit_models <- function(tree, trait) {
+  fitER  <- fitMk(tree, trait, model = "ER")
+  fitARD <- fitMk(tree, trait, model = "ARD")
+  fit01  <- fitMk(tree, trait, model = matrix(c(0,1,0,0), 2, 2, byrow = TRUE))
+  fit10  <- fitMk(tree, trait, model = matrix(c(0,0,1,0), 2, 2, byrow = TRUE))
+  aic    <- c(AIC(fitER), AIC(fitARD), AIC(fit01), AIC(fit10))
+  data.frame(
+    model     = c("ER", "ARD", "P->A", "A->P"),
+    logL      = c(logLik(fitER), logLik(fitARD), logLik(fit01), logLik(fit10)),
+    AIC       = aic,
+    delta.AIC = aic - min(aic)
+  )
+}
+
+cat("Model selection — Snodgrassella:\n")
+print(fit_models(pruned_tree, snod.mode))
+
+cat("\nModel selection — Gilliamella:\n")
+print(fit_models(pruned_tree, gill.mode))
+
+if (length(levels(lacto.mode)) >= 2) {
+  cat("\nModel selection — Lactobacillus:\n")
+  print(fit_models(pruned_tree, lacto.mode))
+} else {
+  cat("\nLactobacillus is monomorphic — model selection not applicable.\n")
+}
+
+if (length(levels(comm.mode)) >= 2) {
+  cat("\nModel selection — Commensalibacter:\n")
+  print(fit_models(pruned_tree, comm.mode))
+} else {
+  cat("\nCommensalibacter is monomorphic — model selection not applicable.\n")
+}
+```
+
+## 8.2 Marginal ancestral reconstruction (corHMM, ER model)
+
+```{r ancestral-reconstruction}
+fit.marginal       <- corHMM(pruned_tree, discrete_Sng,   node.states = "marginal",
+                              rate.cat = 1, rate.mat = matrix(c(NA,1,1,NA), 2, 2))
+fit.marginal_gill   <- corHMM(pruned_tree, discrete_Gill,  node.states = "marginal",
+                              rate.cat = 1, rate.mat = matrix(c(NA,1,1,NA), 2, 2))
+# Snodgrassella
+plotTree.datamatrix(pruned_tree, as.data.frame(snod.mode),
+                    colors = list(cols_snod), header = FALSE, fsize = 0.45)
+legend("topright", legend = levels(snod.mode), pch = 22, pt.cex = 1.5,
+       pt.bg = cols_snod, bty = "n", cex = 0.8)
+nodelabels(pie = fit.marginal$states, piecol = cols_snod, cex = 0.5)
+
+# Gilliamella
+plotTree.datamatrix(pruned_tree, as.data.frame(gill.mode),
+                    colors = list(cols_gill), header = FALSE, fsize = 0.45)
+legend("topright", legend = levels(gill.mode), pch = 22, pt.cex = 1.5,
+       pt.bg = cols_gill, bty = "n", cex = 0.8)
+nodelabels(pie = fit.marginal_gill$states, piecol = cols_gill, cex = 0.5)
+
+# Lactobacillus
+if (length(levels(lacto.mode)) >= 2) {
+  fit.marginal_lacto <- corHMM(pruned_tree, discrete_Lacto, node.states = "marginal",
+                                rate.cat = 1, rate.mat = matrix(c(NA,1,1,NA), 2, 2))
+  plotTree.datamatrix(pruned_tree, as.data.frame(lacto.mode),
+                      colors = list(cols_lacto), header = FALSE, fsize = 0.45)
+  legend("topright", legend = levels(lacto.mode), pch = 22, pt.cex = 1.5,
+         pt.bg = cols_lacto, bty = "n", cex = 0.8)
+  nodelabels(pie = fit.marginal_lacto$states, piecol = cols_lacto, cex = 0.5)
+} else {
+  cat("Lactobacillus is monomorphic — ancestral reconstruction not applicable.\n")
+  fit.marginal_lacto <- NULL
+}
+
+# Commensalibacter
+if (length(levels(comm.mode)) >= 2) {
+  fit.marginal_comm <- corHMM(pruned_tree, discrete_Comm,  node.states = "marginal",
+                               rate.cat = 1, rate.mat = matrix(c(NA,1,1,NA), 2, 2))
+  plotTree.datamatrix(pruned_tree, as.data.frame(comm.mode),
+                      colors = list(cols_comm), header = FALSE, fsize = 0.45)
+  legend("topright", legend = levels(comm.mode), pch = 22, pt.cex = 1.5,
+         pt.bg = cols_comm, bty = "n", cex = 0.8)
+  nodelabels(pie = fit.marginal_comm$states, piecol = cols_comm, cex = 0.5)
+} else {
+  cat("Commensalibacter is monomorphic — ancestral reconstruction not applicable.\n")
+  fit.marginal_comm <- NULL
+}
+```
+
+## 8.3 Stochastic character mapping (1,000 simulations)
+
+```{r stochastic-mapping, cache=TRUE}
+set.seed(42)
+
+mtrees_snd <- make.simmap(pruned_tree, snod.mode, model = "ER",
+                           nsim = 1000, Q = "mcmc", vQ = 0.01,
+                           prior = list(use.empirical = TRUE), samplefreq = 10)
+
+mtrees_gill <- make.simmap(pruned_tree, gill.mode, model = "ER",
+                           nsim = 1000, Q = "mcmc", vQ = 0.01,
+                           prior = list(use.empirical = TRUE), samplefreq = 10)
+
+pd_snd <- summary(mtrees_snd)
+pd_gill <- summary(mtrees_gill)
+
+if (length(levels(lacto.mode)) >= 2) {
+  mtrees_lacto <- make.simmap(pruned_tree, lacto.mode, model = "ER",
+                               nsim = 1000, Q = "mcmc", vQ = 0.01,
+                               prior = list(use.empirical = TRUE), samplefreq = 10)
+  pd_lacto <- summary(mtrees_lacto)
+} else {
+  cat("Lactobacillus is monomorphic — stochastic mapping not applicable.\n")
+  mtrees_lacto <- NULL; pd_lacto <- NULL
+}
+
+if (length(levels(comm.mode)) >= 2) {
+  mtrees_comm <- make.simmap(pruned_tree, comm.mode, model = "ER",
+                              nsim = 1000, Q = "mcmc", vQ = 0.01,
+                              prior = list(use.empirical = TRUE), samplefreq = 10)
+  pd_comm <- summary(mtrees_comm)
+} else {
+  cat("Commensalibacter is monomorphic — stochastic mapping not applicable.\n")
+  mtrees_comm <- NULL; pd_comm <- NULL
+}
+```
+
+```{r stochastic-mapping-plots, fig.width=14, fig.height=16}
+par(mfcol = c(2, 2))
+
+plot(pd_snd, colors = cols_snod, fsize = 0.8, ftype = "i", lwd = 2,
+     offset = 0.4, cex = c(0.7, 0.5))
+legend("bottomleft", legend = levels(snod.mode), pch = 22, pt.cex = 1.5,
+       pt.bg = cols_snod, bty = "n", cex = 0.8)
+
+plot(pd_gill, direction = "leftwards", colors = cols_gill, fsize = 0.8,
+     ftype = "i", lwd = 2, offset = 0.4, cex = c(0.7, 0.5))
+legend("bottomleft", legend = levels(gill.mode), pch = 22, pt.cex = 1.5,
+       pt.bg = cols_gill, bty = "n", cex = 0.8)
+
+if (!is.null(pd_lacto)) {
+  plot(pd_lacto, colors = cols_lacto, fsize = 0.8, ftype = "i", lwd = 2,
+       offset = 0.4, cex = c(0.7, 0.5))
+  legend("bottomleft", legend = levels(lacto.mode), pch = 22, pt.cex = 1.5,
+         pt.bg = cols_lacto, bty = "n", cex = 0.8)
+}
+
+if (!is.null(pd_comm)) {
+  plot(pd_comm, direction = "leftwards", colors = cols_comm, fsize = 0.8,
+       ftype = "i", lwd = 2, offset = 0.4, cex = c(0.7, 0.5))
+  legend("bottomleft", legend = levels(comm.mode), pch = 22, pt.cex = 1.5,
+         pt.bg = cols_comm, bty = "n", cex = 0.8)
+}
+```
+
+```{r root-probabilities}
+tips_all  <- pruned_tree$tip.label
+mrca_root <- getMRCA(pruned_tree, tips_all)
+
+pp_snd_root <- pd_snd$ace[as.character(mrca_root), ]
+pp_gill_root <- pd_gill$ace[as.character(mrca_root), ]
+
+sprintf("Root — Snodgrassella:    absent = %.2f, present = %.2f",
+        pp_snd_root[1], pp_snd_root[2])
+sprintf("Root — Gilliamella:      absent = %.2f, present = %.2f",
+        pp_gill_root[1], pp_gill_root[2])
+if (!is.null(pd_lacto)) {
+  pp_lacto_root <- pd_lacto$ace[as.character(mrca_root), ]
+  sprintf("Root — Lactobacillus:    absent = %.2f, present = %.2f",
+          pp_lacto_root[1], pp_lacto_root[2])
+} else {
+  cat("Root — Lactobacillus: monomorphic, root probability not estimated.\n")
+}
+
+if (!is.null(pd_comm)) {
+  pp_comm_root <- pd_comm$ace[as.character(mrca_root), ]
+  sprintf("Root — Commensalibacter: absent = %.2f, present = %.2f",
+          pp_comm_root[1],  pp_comm_root[2])
+} else {
+  cat("Root — Commensalibacter: monomorphic, root probability not estimated.\n")
+}
+```
+
+---
+
+# 9. Phylogenetic Signal (Blomberg's K)
+
+```{r phylo-signal}
+df_tree_voucher2 <- data.frame(VoucherNumber = meli.tree.one.ultra$tip.label) %>%
+  mutate(CollectionID = str_extract(VoucherNumber, "\\d+"))
+
+signal_df <- as.data.frame(t(ps.genus@otu_table)) %>%
+  rownames_to_column("SampleID") %>%
+  select(SampleID, Snodgrassella, Lactobacillus, Commensalibacter) %>%
+  left_join(metadata %>%
+              rename(SampleID = sample) %>%
+              mutate(CollectionID = as.character(CollectionID)),
+            by = "SampleID") %>%
+  left_join(df_tree_voucher2, by = "CollectionID") %>%
+  filter(!is.na(VoucherNumber)) %>%
+  group_by(VoucherNumber) %>%
+  summarise(
+    Snodgrassella    = mean(Snodgrassella,    na.rm = TRUE),
+    Lactobacillus    = mean(Lactobacillus,    na.rm = TRUE),
+    Commensalibacter = mean(Commensalibacter, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  as.data.frame()
+
+rownames(signal_df) <- signal_df$VoucherNumber
+
+common_sig  <- intersect(pruned_tree$tip.label, signal_df$VoucherNumber)
+tree_sig    <- drop.tip(pruned_tree, setdiff(pruned_tree$tip.label, common_sig))
+signal_df   <- signal_df[tree_sig$tip.label, ]
+class(tree_sig) <- "phylo"
+
+taxa_to_test <- c("Snodgrassella", "Lactobacillus", "Commensalibacter")
+
+results_signal <- lapply(taxa_to_test, function(taxon) {
+  x <- setNames(signal_df[[taxon]], rownames(signal_df))
+  k <- phylosig(tree_sig, x, method = "K", test = TRUE, nsim = 1000)
+  data.frame(Taxon = taxon, K = round(k$K, 3), P_value = round(k$P, 4))
+}) %>% bind_rows()
+
+print(results_signal)
+```
+
+---
+
+# 10. Alpha Diversity: Phylogenetic Signal and PGLS
+
+## 10.1 Prepare species-level alpha diversity data
+
+```{r alpha-div-prep}
+df_tree_ult1 <- data.frame(VoucherNumber = meli.tree.one.ultra$tip.label) %>%
+  mutate(CollectionID = str_extract(VoucherNumber, "\\d+"))
+
+alpha_pgls_df <- alpha.table %>%
+  rename(SampleID = Row.names) %>%
+  mutate(CollectionID = as.character(CollectionID)) %>%
+  left_join(df_tree_ult1, by = "CollectionID") %>%
+  filter(!is.na(VoucherNumber)) %>%
+  group_by(VoucherNumber) %>%
+  summarise(
+    Shannon_mean      = mean(Shannon,      na.rm = TRUE),
+    Richness_mean     = mean(Richness,     na.rm = TRUE),
+    ColonySize_U_mean = mean(ColonySize_U, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(Shannon_mean), !is.na(ColonySize_U_mean)) %>%
+  as.data.frame()
+
+rownames(alpha_pgls_df) <- alpha_pgls_df$VoucherNumber
+
+common_alpha  <- intersect(pruned_tree$tip.label, alpha_pgls_df$VoucherNumber)
+tree_alpha    <- drop.tip(pruned_tree, setdiff(pruned_tree$tip.label, common_alpha))
+alpha_pgls_df <- alpha_pgls_df[tree_alpha$tip.label, ] %>%
+  mutate(ColonySize_log = log(ColonySize_U_mean + 1))
+
+cat("Species in alpha diversity analysis:", nrow(alpha_pgls_df), "\n")
+```
+
+## 10.2 Phylogenetic signal: Blomberg's K and Pagel's λ
+
+```{r alpha-phylosig}
+shannon_vec  <- setNames(alpha_pgls_df$Shannon_mean,  rownames(alpha_pgls_df))
+richness_vec <- setNames(alpha_pgls_df$Richness_mean, rownames(alpha_pgls_df))
+
+# Blomberg's K
+k_shannon  <- phylosig(tree_alpha, shannon_vec,  method = "K", test = TRUE, nsim = 1000)
+k_richness <- phylosig(tree_alpha, richness_vec, method = "K", test = TRUE, nsim = 1000)
+
+# Pagel's lambda
+l_shannon  <- phylosig(tree_alpha, shannon_vec,  method = "lambda", test = TRUE)
+l_richness <- phylosig(tree_alpha, richness_vec, method = "lambda", test = TRUE)
+
+cat("=== Blomberg's K ===\n")
+cat(sprintf("Shannon  — K = %.3f, p = %.4f\n", k_shannon$K,  k_shannon$P))
+cat(sprintf("Richness — K = %.3f, p = %.4f\n", k_richness$K, k_richness$P))
+
+cat("\n=== Pagel's lambda ===\n")
+cat(sprintf("Shannon  — lambda = %.3f, p = %.4f\n", l_shannon$lambda,  l_shannon$P))
+cat(sprintf("Richness — lambda = %.3f, p = %.4f\n", l_richness$lambda, l_richness$P))
+```
+
+## 10.3 Ancestral state reconstruction (contMap)
+
+```{r alpha-contmap, fig.width=8, fig.height=7}
+contMap(tree_alpha, shannon_vec, fsize = c(0.5, 0.8), lwd = 3,
+        outline = FALSE)
+title("Shannon index mapped on phylogeny")
+```
+
+## 10.4 PGLS: Alpha diversity vs. colony size
+
+```{r alpha-pgls}
+spp_alpha   <- alpha_pgls_df$VoucherNumber
+corBM_alpha <- corBrownian(phy = tree_alpha, form = ~spp_alpha)
+
+pgls_Shannon_CS  <- gls(Shannon_mean  ~ ColonySize_log,
+                          data = alpha_pgls_df, correlation = corBM_alpha)
+pgls_Richness_CS <- gls(Richness_mean ~ ColonySize_log,
+                          data = alpha_pgls_df, correlation = corBM_alpha)
+
+summary(pgls_Shannon_CS)
+summary(pgls_Richness_CS)
+```
+
+## 10.5 Visualize PGLS: Alpha diversity vs. colony size
+
+```{r alpha-pgls-plots, fig.width=8, fig.height=4}
+make_alpha_pgls_plot <- function(mdl, y_col, y_label) {
+  p_val  <- summary(mdl)$tTable[2, 4]
+  r2     <- summary(lm(alpha_pgls_df[[y_col]] ~ alpha_pgls_df$ColonySize_log))$r.squared
+  ggplot(alpha_pgls_df, aes(x = ColonySize_U_mean, y = .data[[y_col]])) +
+    geom_point(shape = 21, fill = "grey50", size = 3, alpha = 0.8) +
+    geom_smooth(method = "lm", se = FALSE, color = "grey30", linetype = "dashed") +
+    scale_x_log10() +
+    annotation_logticks(sides = "b") +
+    annotate("text", x = Inf, y = Inf,
+             label = paste0("R² = ", round(r2, 2), "\nPGLS p = ", signif(p_val, 3)),
+             hjust = 1.1, vjust = 1.5, size = 3.5, fontface = "italic") +
+    labs(x = "Colony Size (upper estimate)", y = y_label) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank(), panel.border = element_blank(),
+          axis.line = element_line(colour = "black"),
+          aspect.ratio = 1)
+}
+
+p_shannon  <- make_alpha_pgls_plot(pgls_Shannon_CS,  "Shannon_mean",  "Shannon index")
+p_richness <- make_alpha_pgls_plot(pgls_Richness_CS, "Richness_mean", "Observed richness")
+
+cowplot::plot_grid(p_shannon, p_richness, labels = c("A", "B"), nrow = 1)
+ggsave("figures/raw/alpha_diversity_vs_colonySize.pdf", width = 8, height = 4)
+```
+
+---
+
+# 11. Summary of Outputs
+
+```{r summary}
+cat("============================================\n")
+cat("Files exported to data/processed/:\n")
+cat("  - phyloseqOBJ.rds\n")
+cat("  - alpha_table.rds\n")
+cat("  - metadata_symbionts.rds\n")
+cat("  - pruned_tree.rds\n")
+cat("  - discrete_Sng.rds\n")
+cat("  - discrete_Gill.rds\n")
+cat("  - discrete_Lacto.rds\n")
+cat("  - discrete_Comm.rds\n")
+cat("  - unique_all_avg.rds\n")
+cat("============================================\n")
+cat("Figures exported to figures/raw/:\n")
+cat("  - alpha_diversity.pdf\n")
+cat("  - alpha_diversity_vs_colonySize.pdf\n")
+cat("  - PGLS_relAbundance_colonySize.pdf\n")
+cat("  - phyloANOVA_colonySize.pdf\n")
+cat("============================================\n")
+cat("These files are required inputs for:\n")
+cat("  → 03_qPCR_and_AbsAbundance.Rmd\n")
+```
+
+---
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```

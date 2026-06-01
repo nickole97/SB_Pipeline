@@ -21,6 +21,9 @@ scripts/*.html
 # Personal screenshots
 figures/pgls/
 
+# Raw data (deposited in ENA)
+data/raw/
+
 # R environment
 renv/library/
 renv/.cache/

@@ -96,7 +96,9 @@ rmarkdown::render("scripts/03_qPCR_and_AbsAbundance.Rmd")
 
 ## Data
 
-Raw input files are in `data/raw/`:
+Raw sequencing data and input files are deposited in the **European Nucleotide Archive (ENA)** — accession number to be added upon publication.
+
+Download the following files from ENA and place them in `data/raw/` before running the pipeline:
 
 | File | Description |
 |------|-------------|

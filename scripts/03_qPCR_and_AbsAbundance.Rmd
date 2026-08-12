@@ -55,6 +55,7 @@ abundance and host colony size.
 - `pruned_tree.rds` — ultrametric tree pruned to study species
 - `discrete_Sng.rds` — binary Snodgrassella presence/absence
 - `discrete_Gill.rds` — binary Gilliamella presence/absence
+- `discrete_Comm.rds` — binary Commensalibacter presence/absence
 - `unique_all_avg.rds` — species-averaged symbiont data
 - `muestras_a_eliminar.rds` — samples removed due to high contaminant load
 
@@ -77,6 +78,7 @@ metadata_symbionts <- readRDS(paste0(path_proc, "metadata_symbionts.rds"))
 pruned_tree        <- readRDS(paste0(path_proc, "pruned_tree.rds"))
 discrete_Sng       <- readRDS(paste0(path_proc, "discrete_Sng.rds"))
 discrete_Gill      <- readRDS(paste0(path_proc, "discrete_Gill.rds"))
+discrete_Comm      <- readRDS(paste0(path_proc, "discrete_Comm.rds"))
 unique_all_avg     <- readRDS(paste0(path_proc, "unique_all_avg.rds"))
 muestras_a_eliminar <- readRDS(paste0(path_proc, "muestras_a_eliminar.rds"))
 
@@ -476,12 +478,15 @@ rownames(df_qpcr) <- df_qpcr$VoucherNumber
 
 # Merge with presence/absence data
 pres_tbl <- qpcr_bySpp_Snod_Gill[, c("VoucherNumber",
-                                       "Snodgrassella_pre", "Gilliamella_pre")]
+                                       "Snodgrassella_pre", "Gilliamella_pre")] %>%
+  left_join(discrete_Comm, by = "VoucherNumber") %>%
+  mutate(Commensalibacter_pre = factor(Discrete_Commensalibacter,
+                                       levels = c(0, 1), labels = c("abs", "pres")))
 rownames(pres_tbl) <- pres_tbl$VoucherNumber
 
 dat_pa <- cbind(
   df_qpcr[rownames(pres_tbl), "log10_load", drop = FALSE],
-  pres_tbl[, c("Snodgrassella_pre", "Gilliamella_pre")]
+  pres_tbl[, c("Snodgrassella_pre", "Gilliamella_pre", "Commensalibacter_pre")]
 )
 
 # Drop species with missing qPCR data, then align with tree
@@ -493,17 +498,21 @@ dat_pa    <- dat_pa[tree_pa$tip.label, ]
 
 cat("Species in phylo-ANOVA:", nrow(dat_pa), "\n")
 
-y_load <- setNames(dat_pa$log10_load,         rownames(dat_pa))
-x_snod <- setNames(dat_pa$Snodgrassella_pre,  rownames(dat_pa))
-x_gill <- setNames(dat_pa$Gilliamella_pre,    rownames(dat_pa))
+y_load <- setNames(dat_pa$log10_load,              rownames(dat_pa))
+x_snod <- setNames(dat_pa$Snodgrassella_pre,       rownames(dat_pa))
+x_gill <- setNames(dat_pa$Gilliamella_pre,         rownames(dat_pa))
+x_comm <- setNames(dat_pa$Commensalibacter_pre,    rownames(dat_pa))
 
 res_snod_qpcr <- phylANOVA(tree_pa, x = x_snod, y = y_load, nsim = 1000)
 res_gill_qpcr <- phylANOVA(tree_pa, x = x_gill, y = y_load, nsim = 1000)
+res_comm_qpcr <- phylANOVA(tree_pa, x = x_comm, y = y_load, nsim = 1000)
 
-cat(sprintf("Snodgrassella: F = %.2f, p = %.3f\n",
+cat(sprintf("Snodgrassella:      F = %.2f, p = %.3f\n",
             unname(res_snod_qpcr$F), unname(res_snod_qpcr$Pf)))
-cat(sprintf("Gilliamella:   F = %.2f, p = %.3f\n",
+cat(sprintf("Gilliamella:        F = %.2f, p = %.3f\n",
             unname(res_gill_qpcr$F), unname(res_gill_qpcr$Pf)))
+cat(sprintf("Commensalibacter:   F = %.2f, p = %.3f\n",
+            unname(res_comm_qpcr$F), unname(res_comm_qpcr$Pf)))
 ```
 
 ---

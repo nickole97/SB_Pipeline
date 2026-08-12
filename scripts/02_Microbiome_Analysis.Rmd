@@ -5,8 +5,9 @@ date: "2025"
 output:
   html_document:
     toc: true
+    toc_float: true
     toc_depth: 3
-    theme: united
+    theme: flatly
     code_folding: hide
 editor_options:
   chunk_output_type: console
@@ -215,15 +216,14 @@ saveRDS(phyloseqOBJ, file = paste0(path_proc, "phyloseqOBJ.rds"))
 
 # 2. Alpha Diversity
 
-Alpha diversity (Shannon index and species richness) is estimated by iteratively
-rarefying the unfiltered absolute-abundance table 100 times at a depth of 1,300 reads,
-then averaging across iterations to reduce stochastic variation.
+Alpha diversity (Shannon index) is estimated by iteratively rarefying the unfiltered
+absolute-abundance table 100 times at a depth of 1,300 reads, then averaging across
+iterations to reduce stochastic variation.
 
 ```{r alpha-diversity}
 n_iterations   <- 100
 sequence_depth <- 1300
 alpha_results  <- vector("list", n_iterations)
-S_results      <- vector("list", n_iterations)
 
 set.seed(711)
 
@@ -231,12 +231,10 @@ for (i in seq_len(n_iterations)) {
   cat("Iteration", i, "of", n_iterations, "\r")
   rar_otu_temp       <- as.data.frame(vegan::rrarefy(OTU_Table, sequence_depth))
   alpha_results[[i]] <- as.data.frame(vegan::diversity(t(rar_otu_temp)))
-  S_results[[i]]     <- as.data.frame(vegan::specnumber(t(rar_otu_temp)))
 }
 
 alpha_diversity_table <- data.frame(
-  Richness = round(rowMeans(do.call(cbind, S_results))),
-  Shannon  = rowMeans(do.call(cbind, alpha_results))
+  Shannon = rowMeans(do.call(cbind, alpha_results))
 )
 
 # Merge with metadata
@@ -261,21 +259,21 @@ cat("\nAlpha diversity table saved.\n")
 ## 2.1 Alpha diversity plots
 
 ```{r alpha-plots, fig.width=12, fig.height=4}
-A <- ggplot(alpha.table, aes(ColonySize, Richness)) +
+A <- ggplot(alpha.table, aes(ColonySize, Shannon)) +
   geom_violin(aes(color = ColonySize)) +
   geom_boxplot(width = 0.1, color = "grey", alpha = 0.2) +
   geom_jitter(alpha = 0.5) +
   theme_classic() +
   theme(text = element_text(size = 14), legend.position = "none")
 
-B <- ggplot(alpha.table, aes(Continent, Richness)) +
+B <- ggplot(alpha.table, aes(Continent, Shannon)) +
   geom_violin(aes(color = Continent)) +
   geom_boxplot(width = 0.1, color = "grey", alpha = 0.2) +
   geom_jitter(alpha = 0.5) +
   theme_classic() +
   theme(text = element_text(size = 14), legend.position = "none")
 
-C <- ggplot(alpha.table, aes(Region, Richness)) +
+C <- ggplot(alpha.table, aes(Region, Shannon)) +
   geom_violin(aes(color = Region)) +
   geom_boxplot(width = 0.1, color = "grey", alpha = 0.2) +
   geom_jitter(alpha = 0.5) +
@@ -301,7 +299,7 @@ pca_plot <- phyloseqOBJ %>%
   tax_transform("clr", rank = "Genus") %>%
   ord_calc(method = "PCA") %>%
   ord_plot(color = "Region", plot_taxa = 1:8,
-           size = "BodySize", alpha = 0.75,
+           alpha = 0.75,
            auto_caption = 10,
            tax_lab_style = tax_lab_style(size = 2.5, alpha = 0.75))
 
@@ -475,6 +473,246 @@ cowplot::plot_grid(left_col, right_col, ncol = 2, rel_widths = c(10, 1.5))
 ggsave("figures/raw/composition_barplot.pdf", width = 12, height = 7)
 ```
 
+## 3.3b Composition barplot (microViz)
+
+```{r composition-barplot-microviz, fig.width=14, fig.height=5}
+# Order samples by bee genus then sample ID — to match original circular Fig. 1
+ordered_samples <- data.frame(sample_data(phyloseqOBJ), stringsAsFactors = FALSE) %>%
+  rownames_to_column("SampleID") %>%
+  arrange(Bee_Genus, SampleID) %>%
+  pull(SampleID)
+
+p_mv <- phyloseqOBJ %>%
+  comp_barplot(
+    tax_level   = "Genus",
+    n_taxa      = 10,
+    other_name  = "Other",
+    sample_order = "default",
+    taxon_renamer = function(x) stringr::str_remove(x, " [ae]t rel."),
+    palette     = distinct_palette(n = 10, add = "grey90"),
+    merge_other = FALSE,
+    bar_outline_colour = NA
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
+  labs(x = NULL, y = "Relative Abundance") +
+  theme_bw(base_size = 10) +
+  theme(axis.text.x    = element_blank(),
+        axis.ticks.x   = element_blank(),
+        panel.grid     = element_blank(),
+        legend.text    = element_text(face = "italic", size = 8),
+        plot.margin    = margin(5, 5, 0, 5))
+
+# Extract actual sample order from the built ggplot (discrete scale limits = sample names in order)
+actual_order <- ggplot_build(p_mv)$layout$panel_params[[1]]$x$limits
+
+# Region annotation strip — aligned to actual barplot sample order
+annot_mv <- data.frame(sample_data(phyloseqOBJ), stringsAsFactors = FALSE) %>%
+  rownames_to_column("SampleID") %>%
+  filter(SampleID %in% actual_order) %>%
+  mutate(SampleID = factor(SampleID, levels = actual_order))
+
+region_cols <- c("Neotropics"             = "grey80",
+                 "AfroTropics"            = "grey45",
+                 "Indo-Malay-Australasia" = "grey15")
+
+p_region_mv <- ggplot(annot_mv, aes(x = SampleID, y = 1, fill = Region)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_manual(values = region_cols, name = "Region") +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = NULL, y = "Region") +
+  theme_void() +
+  theme(legend.position  = "right",
+        legend.key.size  = unit(0.4, "cm"),
+        legend.text      = element_text(size = 8),
+        legend.title     = element_text(size = 8, face = "bold"),
+        axis.title.y     = element_text(size = 7, angle = 0, vjust = 0.5, hjust = 1),
+        axis.text.x      = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 3),
+        plot.margin      = margin(0, 5, 2, 5))
+
+left_col <- cowplot::plot_grid(
+  p_mv + theme(legend.position = "none"),
+  p_region_mv + theme(legend.position = "none"),
+  ncol = 1, align = "v", axis = "lr",
+  rel_heights = c(8, 0.5)
+)
+
+right_col <- cowplot::plot_grid(
+  cowplot::get_legend(p_mv),
+  cowplot::get_legend(p_region_mv),
+  ncol = 1, rel_heights = c(3, 1)
+)
+
+cowplot::plot_grid(left_col, right_col, ncol = 2, rel_widths = c(10, 1.5))
+
+ggsave("figures/raw/composition_barplot_microviz.pdf", width = 14, height = 5)
+```
+
+## 3.3b-ii Composition barplot — ordered by Bee_Genus
+
+```{r composition-barplot-beegenusor, fig.width=14, fig.height=5}
+ordered_genus <- data.frame(sample_data(phyloseqOBJ), stringsAsFactors = FALSE) %>%
+  rownames_to_column("SampleID") %>%
+  arrange(Bee_Genus, SampleID) %>%
+  pull(SampleID)
+
+p_mv_genus <- phyloseqOBJ %>%
+  comp_barplot(
+    tax_level   = "Genus",
+    n_taxa      = 10,
+    other_name  = "Other",
+    sample_order = ordered_genus,
+    taxon_renamer = function(x) stringr::str_remove(x, " [ae]t rel."),
+    palette     = distinct_palette(n = 10, add = "grey90"),
+    merge_other = FALSE,
+    bar_outline_colour = NA
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
+  labs(x = NULL, y = "Relative Abundance") +
+  theme_bw(base_size = 10) +
+  theme(axis.text.x    = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 5),
+        axis.ticks.x   = element_line(linewidth = 0.3),
+        panel.grid     = element_blank(),
+        legend.text    = element_text(face = "italic", size = 8),
+        plot.margin    = margin(5, 5, 0, 5))
+
+annot_genus <- data.frame(sample_data(phyloseqOBJ), stringsAsFactors = FALSE) %>%
+  rownames_to_column("SampleID") %>%
+  filter(SampleID %in% ordered_genus) %>%
+  mutate(SampleID = factor(SampleID, levels = ordered_genus))
+
+region_cols <- c("Neotropics"             = "grey80",
+                 "AfroTropics"            = "grey45",
+                 "Indo-Malay-Australasia" = "grey15")
+
+p_region_genus <- ggplot(annot_genus, aes(x = SampleID, y = 1, fill = Region)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_manual(values = region_cols, name = "Region") +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = NULL, y = "Region") +
+  theme_void() +
+  theme(legend.position  = "right",
+        legend.key.size  = unit(0.4, "cm"),
+        legend.text      = element_text(size = 8),
+        legend.title     = element_text(size = 8, face = "bold"),
+        axis.title.y     = element_text(size = 7, angle = 0, vjust = 0.5, hjust = 1),
+        plot.margin      = margin(0, 5, 2, 5))
+
+left_col_g <- cowplot::plot_grid(
+  p_mv_genus + theme(legend.position = "none"),
+  p_region_genus + theme(legend.position = "none"),
+  ncol = 1, align = "v", axis = "lr",
+  rel_heights = c(8, 0.5)
+)
+
+right_col_g <- cowplot::plot_grid(
+  cowplot::get_legend(p_mv_genus),
+  cowplot::get_legend(p_region_genus),
+  ncol = 1, rel_heights = c(3, 1)
+)
+
+cowplot::plot_grid(left_col_g, right_col_g, ncol = 2, rel_widths = c(10, 1.5))
+
+ggsave("figures/raw/composition_barplot_beegenusor.pdf", width = 14, height = 5)
+```
+
+## 3.3c Composition barplot — unrarefied, unfiltered (for comparison)
+
+```{r composition-barplot-unrarefied, fig.width=14, fig.height=5}
+# Uses phyloseqOBJ_Raw: after tax_fix but before rarefaction and tax_filter
+# Transforms to relative abundance so samples are comparable despite unequal depths
+ps_raw_rel <- transform_sample_counts(phyloseqOBJ_Raw, function(x) x / sum(x))
+
+p_mv_raw <- ps_raw_rel %>%
+  comp_barplot(
+    tax_level   = "Genus",
+    n_taxa      = 10,
+    other_name  = "Other",
+    sample_order = "default",
+    taxon_renamer = function(x) stringr::str_remove(x, " [ae]t rel."),
+    palette     = distinct_palette(n = 10, add = "grey90"),
+    merge_other = FALSE,
+    bar_outline_colour = NA
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
+  labs(x = NULL, y = "Relative Abundance",
+       title = "Unrarefied, unfiltered (phyloseqOBJ_Raw)") +
+  theme_bw(base_size = 10) +
+  theme(axis.text.x    = element_blank(),
+        axis.ticks.x   = element_blank(),
+        panel.grid     = element_blank(),
+        legend.text    = element_text(face = "italic", size = 8),
+        plot.margin    = margin(5, 5, 0, 5))
+
+actual_order_raw <- ggplot_build(p_mv_raw)$layout$panel_params[[1]]$x$limits
+
+annot_raw <- data.frame(sample_data(ps_raw_rel), stringsAsFactors = FALSE) %>%
+  rownames_to_column("SampleID") %>%
+  filter(SampleID %in% actual_order_raw) %>%
+  mutate(SampleID = factor(SampleID, levels = actual_order_raw))
+
+region_cols <- c("Neotropics"             = "grey80",
+                 "AfroTropics"            = "grey45",
+                 "Indo-Malay-Australasia" = "grey15")
+
+p_region_raw <- ggplot(annot_raw, aes(x = SampleID, y = 1, fill = Region)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_manual(values = region_cols, name = "Region") +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = NULL, y = "Region") +
+  theme_void() +
+  theme(legend.position  = "right",
+        legend.key.size  = unit(0.4, "cm"),
+        legend.text      = element_text(size = 8),
+        legend.title     = element_text(size = 8, face = "bold"),
+        axis.title.y     = element_text(size = 7, angle = 0, vjust = 0.5, hjust = 1),
+        plot.margin      = margin(0, 5, 2, 5))
+
+left_col_raw <- cowplot::plot_grid(
+  p_mv_raw + theme(legend.position = "none"),
+  p_region_raw + theme(legend.position = "none"),
+  ncol = 1, align = "v", axis = "lr",
+  rel_heights = c(8, 0.5)
+)
+
+right_col_raw <- cowplot::plot_grid(
+  cowplot::get_legend(p_mv_raw),
+  cowplot::get_legend(p_region_raw),
+  ncol = 1, rel_heights = c(3, 1)
+)
+
+cowplot::plot_grid(left_col_raw, right_col_raw, ncol = 2, rel_widths = c(10, 1.5))
+
+ggsave("figures/raw/composition_barplot_unrarefied.pdf", width = 14, height = 5)
+```
+
+## 3.3d Iris plot (circular, original style)
+
+```{r iris-plot, fig.width=10, fig.height=10}
+phyloseqOBJ %>%
+  tax_filter(min_prevalence = 2.5 / 100, verbose = FALSE) %>%
+  tax_transform(rank = "Genus", trans = "clr", zero_replace = "halfmin") %>%
+  ord_calc(method = "PCA") %>%
+  ord_plot_iris(
+    tax_level         = "Genus",
+    n_taxa            = 10,
+    other             = "Other",
+    anno_colour       = "Region",
+    anno_colour_style = list(alpha = 0.6, size = 3, show.legend = TRUE)
+  )
+
+ggsave("figures/raw/iris_plot.pdf", width = 10, height = 10)
+```
+
+## 3.3e Composition barplot horizontal (original style)
+
+```{r composition-barplot-horizontal, fig.width=14, fig.height=10}
+phyloseqOBJ %>%
+  comp_barplot(tax_level = "Genus", facet_by = "Bee_Genus", n_taxa = 13) +
+  coord_flip()
+
+ggsave("figures/raw/composition_barplot_horizontal.pdf", width = 14, height = 10)
+```
+
 ## 3.4 Top taxa by abundance and prevalence
 
 ```{r top-taxa}
@@ -506,6 +744,40 @@ cat("Top 20 genera by abundance and prevalence:\n")
 print(head(top_combined, 20))
 ```
 
+## 3.5 Rank-abundance curve
+
+```{r rank-abundance-curve, fig.width=11, fig.height=5}
+focal_taxa <- c("Snodgrassella", "Gilliamella", "Lactobacillus",
+                "Commensalibacter", "Bifidobacterium",
+                "Acetobacteraceae Family", "Lactobacillaceae Family")
+
+# Mean proportion per genus averaged across samples (0–1 scale)
+mean_prop <- colMeans(sweep(genus_mat, 1, rowSums(genus_mat), "/"))
+
+rank_df <- data.frame(
+  Genus     = names(mean_prop),
+  MeanProp  = mean_prop
+) %>%
+  arrange(desc(MeanProp)) %>%
+  slice_head(n = 15) %>%
+  mutate(
+    Rank  = row_number(),
+    Focal = Genus %in% focal_taxa,
+    Genus = factor(Genus, levels = Genus)
+  )
+
+ggplot(rank_df, aes(x = Genus, y = MeanProp)) +
+  geom_point(color = "#7b2d8b", size = 3, alpha = 0.9) +
+  labs(x = "Bacterial genera ranked by abundance",
+       y = "Mean proportion of sequences\nacross samples") +
+  theme_bw(base_size = 11) +
+  theme(axis.text.x    = element_text(angle = 45, hjust = 1, face = "italic"),
+        legend.position = "top",
+        panel.grid.minor = element_blank())
+
+ggsave("figures/raw/rank_abundance_curve.pdf", width = 11, height = 5)
+```
+
 ---
 
 # 4. PERMANOVA and Mantel Test
@@ -514,6 +786,8 @@ print(head(top_combined, 20))
 
 Tests whether microbial community composition differs significantly across geographic
 regions using Bray-Curtis distances (999 permutations).
+Note: the `Region` variable (AfroTropics, Indo-Malay-Australasia, Neotropics) corresponds
+to "continent" as reported in the manuscript.
 
 ```{r permanova}
 dists_bray <- tax_transform(phyloseqOBJ, trans = "identity", rank = "Family") %>%
@@ -528,26 +802,6 @@ bray_perm <- dists_bray %>%
   )
 
 perm_get(bray_perm) %>% as.data.frame()
-```
-
-## 4.2 Mantel test: microbiome dissimilarity vs. body size
-
-```{r mantel-test}
-PCA_data <- phyloseqOBJ %>%
-  tax_fix(unknowns = c("Incertae_Sedis")) %>%
-  tax_transform("clr", rank = "Genus")
-
-clr_bray_dist <- vegdist(PCA_data@counts, method = "bray")
-
-# Align body size vector with samples in PCA_data
-metadata_ps_df <- as(sample_data(phyloseqOBJ), "data.frame")
-BodySize_df    <- metadata_ps_df[rownames(PCA_data@counts), "BodySize", drop = FALSE]
-bodysize_dist  <- dist(BodySize_df$BodySize, method = "euclidean")
-
-# Mantel test (Spearman, 9,999 permutations)
-mantel_result <- mantel(clr_bray_dist, bodysize_dist,
-                        method = "spearman", permutations = 9999, na.rm = TRUE)
-mantel_result
 ```
 
 ---
@@ -1382,7 +1636,6 @@ alpha_pgls_df <- alpha.table %>%
   group_by(VoucherNumber) %>%
   summarise(
     Shannon_mean      = mean(Shannon,      na.rm = TRUE),
-    Richness_mean     = mean(Richness,     na.rm = TRUE),
     ColonySize_U_mean = mean(ColonySize_U, na.rm = TRUE),
     .groups = "drop"
   ) %>%
@@ -1402,24 +1655,19 @@ cat("Species in alpha diversity analysis:", nrow(alpha_pgls_df), "\n")
 ## 10.2 Phylogenetic signal: Blomberg's K and Pagel's λ
 
 ```{r alpha-phylosig}
-shannon_vec  <- setNames(alpha_pgls_df$Shannon_mean,  rownames(alpha_pgls_df))
-richness_vec <- setNames(alpha_pgls_df$Richness_mean, rownames(alpha_pgls_df))
+shannon_vec <- setNames(alpha_pgls_df$Shannon_mean, rownames(alpha_pgls_df))
 
 # Blomberg's K
-k_shannon  <- phylosig(tree_alpha, shannon_vec,  method = "K", test = TRUE, nsim = 1000)
-k_richness <- phylosig(tree_alpha, richness_vec, method = "K", test = TRUE, nsim = 1000)
+k_shannon <- phylosig(tree_alpha, shannon_vec, method = "K", test = TRUE, nsim = 1000)
 
 # Pagel's lambda
-l_shannon  <- phylosig(tree_alpha, shannon_vec,  method = "lambda", test = TRUE)
-l_richness <- phylosig(tree_alpha, richness_vec, method = "lambda", test = TRUE)
+l_shannon <- phylosig(tree_alpha, shannon_vec, method = "lambda", test = TRUE)
 
 cat("=== Blomberg's K ===\n")
-cat(sprintf("Shannon  — K = %.3f, p = %.4f\n", k_shannon$K,  k_shannon$P))
-cat(sprintf("Richness — K = %.3f, p = %.4f\n", k_richness$K, k_richness$P))
+cat(sprintf("Shannon — K = %.3f, p = %.4f\n", k_shannon$K, k_shannon$P))
 
 cat("\n=== Pagel's lambda ===\n")
-cat(sprintf("Shannon  — lambda = %.3f, p = %.4f\n", l_shannon$lambda,  l_shannon$P))
-cat(sprintf("Richness — lambda = %.3f, p = %.4f\n", l_richness$lambda, l_richness$P))
+cat(sprintf("Shannon — lambda = %.3f, p = %.4f\n", l_shannon$lambda, l_shannon$P))
 ```
 
 ## 10.3 Ancestral state reconstruction (contMap)
@@ -1436,13 +1684,10 @@ title("Shannon index mapped on phylogeny")
 spp_alpha   <- alpha_pgls_df$VoucherNumber
 corBM_alpha <- corBrownian(phy = tree_alpha, form = ~spp_alpha)
 
-pgls_Shannon_CS  <- gls(Shannon_mean  ~ ColonySize_log,
-                          data = alpha_pgls_df, correlation = corBM_alpha)
-pgls_Richness_CS <- gls(Richness_mean ~ ColonySize_log,
-                          data = alpha_pgls_df, correlation = corBM_alpha)
+pgls_Shannon_CS <- gls(Shannon_mean ~ ColonySize_log,
+                        data = alpha_pgls_df, correlation = corBM_alpha)
 
 summary(pgls_Shannon_CS)
-summary(pgls_Richness_CS)
 ```
 
 ## 10.5 Visualize PGLS: Alpha diversity vs. colony size
@@ -1466,11 +1711,10 @@ make_alpha_pgls_plot <- function(mdl, y_col, y_label) {
           aspect.ratio = 1)
 }
 
-p_shannon  <- make_alpha_pgls_plot(pgls_Shannon_CS,  "Shannon_mean",  "Shannon index")
-p_richness <- make_alpha_pgls_plot(pgls_Richness_CS, "Richness_mean", "Observed richness")
+p_shannon <- make_alpha_pgls_plot(pgls_Shannon_CS, "Shannon_mean", "Shannon index")
 
-cowplot::plot_grid(p_shannon, p_richness, labels = c("A", "B"), nrow = 1)
-ggsave("figures/raw/alpha_diversity_vs_colonySize.pdf", width = 8, height = 4)
+p_shannon
+ggsave("figures/raw/alpha_diversity_vs_colonySize.pdf", width = 4, height = 4)
 ```
 
 ---

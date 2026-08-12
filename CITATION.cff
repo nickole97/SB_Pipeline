@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: "SB_Pipeline: 16S amplicon and qPCR analysis pipeline for stingless bee gut microbiomes"
+message: "If you use this code, please cite both the software and the associated paper."
+type: software
+authors:
+  - family-names: Villabona
+    given-names: Nickole
+    email: nvillabo@uci.edu
+    affiliation: "University of California, Irvine"
+repository-code: "https://github.com/nickole97/SB_Pipeline"
+license: MIT
+keywords:
+  - stingless bees
+  - Meliponini
+  - gut microbiome
+  - 16S rRNA
+  - qPCR
+  - phylogenetic comparative methods
+
+# TODO before submission: add co-authors, the bioRxiv DOI, and the publication date.
+preferred-citation:
+  type: article
+  title: "Gain and loss of gut symbionts during stingless bee diversification is linked to host group size"
+  authors:
+    - family-names: Villabona
+      given-names: Nickole
+      affiliation: "University of California, Irvine"
+  journal: bioRxiv
+  year: 2026

@@ -10,6 +10,10 @@
 .Ruserdata
 .Rproj.user/
 *.Rproj
+Rplots.pdf
+
+# Editor / agent local config
+.claude/
 
 # knitr cache and intermediate files
 *_cache/

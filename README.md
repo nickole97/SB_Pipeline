@@ -1,4 +1,4 @@
-# Stingless Bee Gut Microbiome Pipeline
+# Stingless Bee Gut Microbiome - Group size
 
 **16S amplicon analysis and qPCR-based absolute abundance estimation for stingless bee (*Meliponini*) gut microbiomes**
 
@@ -11,7 +11,7 @@ Code repository for:
 
 ## Overview
 
-This pipeline processes 16S V4 amplicon data from stingless bee gut samples to characterize symbiont community composition, estimate absolute abundances using qPCR, and test associations with host colony size using phylogenetic comparative methods.
+This pipeline processes 16S V4 amplicon data from stingless bee gut samples to characterize symbiont community composition, estimate absolute abundances using qPCR, and test associations with host colony size using phylogenetic comparative methods. Two different datasets were included in the analysis; Costa Rica dataset collected in 2019, and a global collection from a previous study. 
 
 The pipeline consists of three sequential R Markdown scripts:
 

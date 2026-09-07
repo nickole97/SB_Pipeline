@@ -1,0 +1,733 @@
+---
+title: "Costa Rica Dataset - Stingless Bee Gut Microbiome"
+author: "Nickole Villabona"
+date: "2025"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 10, fig.height = 6)
+# Set working directory to project root so relative paths work when knitting from RStudio
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+```{r libraries}
+library(phyloseq)
+library(microViz)
+library(vegan)
+library(ape)
+library(tidyverse)
+library(RColorBrewer)
+library(cowplot)
+library(ggtext)
+library(patchwork)
+library(wesanderson)
+```
+
+```{r species-colors}
+# Master color palette — used in PCoA, PCA, rarefaction curves, and map
+sp_colors_org <- c(
+  "Partamona_orizabaensis"         = "#FC4E07",
+  "Scaptotrigona_subobscuripennis" = "#1B7B3D",
+  "Tetragonisca_angustula"         = "#00AFBB",
+  "Tetragona_ziegleri"            = "#9d4edd",
+  "Trigona_fulviventris"           = "#E7B800"
+)
+```
+
+---
+
+# 1. Data loading
+
+```{r load-data}
+path_raw <- "data/raw/"
+dir.create("figures/raw", showWarnings = FALSE, recursive = TRUE)
+
+# ASV counts (exported from the QIIME 2 artifact; 1,928 ASVs x 191 samples)
+counts_jb <- read.delim(paste0(path_raw, "CostaRica_ASV_table.tsv"),
+                        row.names = 1, check.names = FALSE) %>% as.matrix()
+
+# Specimen records. Organism and ColonyName are rebuilt here under the names the
+# rest of this script expects; the five extraction blanks have no specimen record
+# and so get NA Organism, which section 4 drops.
+metadata_jb <- read.delim(paste0(path_raw, "CostaRica_metadata.tsv"),
+                          stringsAsFactors = FALSE) %>%
+  filter(!is.na(SampleID)) %>%
+  mutate(Organism   = paste(Genus, Species, sep = "_"),
+         ColonyName = ColonyID)
+rownames(metadata_jb) <- metadata_jb$SampleID
+metadata_jb <- metadata_jb[colnames(counts_jb), , drop = FALSE]
+rownames(metadata_jb) <- colnames(counts_jb)
+
+taxonomy_jb <- read_tsv(paste0(path_raw, "CostaRica_taxonomy.tsv"),
+                        show_col_types = FALSE,
+                        col_types = cols(.default = col_character())) %>%
+  dplyr::rename(FeatureID = ASV_ID)
+
+obj_joyce <- phyloseq(otu_table(counts_jb, taxa_are_rows = TRUE),
+                      sample_data(metadata_jb))
+obj_joyce
+```
+
+---
+
+# 2. Taxonomy cleaning
+
+Parse SILVA taxonomy string and replace with cleaned table.
+
+```{r taxonomy-parse}
+tax_df_jb <- taxonomy_jb %>%
+  separate_wider_delim(
+    Taxon, delim = ";",
+    names = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+    too_few = "align_start"
+  ) %>%
+  mutate(across(Domain:Species, ~ sub("^[a-zA-Z]__", "", trimws(.x)))) %>%
+  mutate(FeatureID = trimws(FeatureID)) %>%
+  distinct(FeatureID, .keep_all = TRUE) %>%
+  as.data.frame()
+
+rownames(tax_df_jb) <- tax_df_jb$FeatureID
+
+# Rename Domain → Kingdom and ensure all ranks exist
+desired <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+tax_df_jb$Kingdom <- tax_df_jb$Domain
+tax_df_jb$Domain  <- NULL
+for (col in setdiff(desired, colnames(tax_df_jb))) tax_df_jb[[col]] <- NA_character_
+tax_df_jb <- tax_df_jb[, desired, drop = FALSE]
+```
+
+```{r taxonomy-update}
+ids <- taxa_names(obj_joyce)
+
+missing_asvs <- setdiff(ids, rownames(tax_df_jb))
+if (length(missing_asvs)) {
+  # Merge with old taxonomy for ASVs not in new table
+  old_tax <- as.data.frame(tax_table(obj_joyce), stringsAsFactors = FALSE)
+  for (col in setdiff(colnames(tax_df_jb), colnames(old_tax))) old_tax[[col]] <- NA_character_
+  for (col in setdiff(colnames(old_tax), colnames(tax_df_jb))) tax_df_jb[[col]] <- NA_character_
+  comunes <- intersect(rownames(old_tax), rownames(tax_df_jb))
+  old_tax[comunes, colnames(tax_df_jb)] <- tax_df_jb[comunes, colnames(tax_df_jb)]
+  new_mat <- as.matrix(old_tax[ids, , drop = FALSE])
+} else {
+  new_mat <- as.matrix(tax_df_jb[ids, , drop = FALSE])
+}
+storage.mode(new_mat) <- "character"
+tax_table(obj_joyce)  <- tax_table(new_mat)
+
+rank_names(obj_joyce)
+```
+
+Manual LCA corrections confirmed by BLAST (≥95% identity), plus unification of
+the SILVA typo `Giliamella` (one 'l') → `Gilliamella`:
+
+```{r taxonomy-lca-fix}
+tax <- tax_table(obj_joyce)
+
+# ASV-level corrections
+lca_corrections <- c(
+  "2f5bd1cf50b6d70e150bc1829af4ee7e" = "Gilliamella",
+  "9c489be807c8d254d8af389af7b2ad60" = "Snodgrassella",
+  "c1d35f5da6018f72638c83306839f516" = "Gilliamella",
+  "07dc3714ead232d81471f5fa6f65f4a8" = "Gilliamella"
+)
+
+for (asv in names(lca_corrections)) {
+  if (asv %in% rownames(tax)) {
+    tax[asv, "Genus"] <- lca_corrections[asv]
+  }
+}
+
+# Fix SILVA typo: "Giliamella" (1 'l') → "Gilliamella"
+tax[tax[, "Genus"] %in% "Giliamella", "Genus"] <- "Gilliamella"
+
+tax_table(obj_joyce) <- tax
+cat("ASVs reclassified as Gilliamella (typo fix):",
+    sum(tax[, "Genus"] == "Gilliamella", na.rm = TRUE), "\n")
+```
+
+---
+
+# 3. Rarefaction curves
+
+```{r rarefaction-curves}
+otu_joyce <- as(otu_table(obj_joyce), "matrix")
+if (taxa_are_rows(obj_joyce)) otu_joyce <- t(otu_joyce)
+
+rare_list <- rarecurve(otu_joyce, step = 100,
+                       sample = min(rowSums(otu_joyce)), label = FALSE)
+
+rare_df <- map_dfr(seq_along(rare_list), function(i) {
+  tibble(
+    SampleID         = rownames(otu_joyce)[i],
+    Depth            = attr(rare_list[[i]], "Subsample"),
+    Rarefied_Richness = rare_list[[i]]
+  )
+}) %>%
+  left_join(metadata_jb, by = "SampleID")
+
+ggplot(rare_df, aes(x = Depth, y = Rarefied_Richness, group = SampleID, color = SampleID)) +
+  geom_line(alpha = 0.8) +
+  geom_vline(xintercept = 1000, color = "darkorange", linetype = "dashed") +
+  coord_cartesian(xlim = c(0, 1500)) +
+  facet_wrap(~ Organism) +
+  labs(x = "Number of reads", y = "Observed richness",
+       title = "Rarefaction curves per sample") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+---
+
+# 4. Filtering and normalization
+
+Rarefy to 2,500 reads per sample; remove samples with missing `Organism`.
+
+```{r filter-rarefy}
+set.seed(123)
+physeq_rarefied <- rarefy_even_depth(
+  obj_joyce, sample.size = 2500,
+  rngseed = 123, replace = FALSE, trimOTUs = TRUE, verbose = TRUE
+)
+
+physeq_clean <- physeq_rarefied %>%
+  subset_samples(!is.na(Organism)) %>%
+  tax_fix() %>%
+  phyloseq_validate() %>%
+  tax_fix(unknowns = c("uncultured"))
+
+physeq_clean
+```
+
+---
+
+# 5. Community composition
+
+## 5.1 Iris plot (CLR-PCA)
+
+```{r iris-plot}
+physeq_clean %>%
+  tax_filter(min_prevalence = 2.5 / 100, verbose = FALSE) %>%
+  tax_transform(rank = "Genus", trans = "clr", zero_replace = "halfmin") %>%
+  ord_calc(method = "PCA") %>%
+  ord_plot_iris(
+    tax_level = "Genus", n_taxa = 10, other = "Other",
+    anno_colour = "Organism",
+    anno_colour_style = list(alpha = 0.6, size = 3, show.legend = TRUE)
+  )
+```
+
+## 5.2 Composition barplot by species
+
+```{r comp-barplot-genus}
+physeq_clean %>%
+  comp_barplot(
+    tax_level = "Genus", n_taxa = 15, other_name = "Other",
+    taxon_renamer = function(x) stringr::str_remove(x, " [ae]t rel."),
+    palette = distinct_palette(n = 15, add = "grey90"),
+    merge_other = FALSE, bar_outline_colour = "darkgrey"
+  ) +
+  coord_flip() +
+  facet_wrap("Organism", nrow = 1, scales = "free") +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+```
+
+```{r comp-barplot-family}
+physeq_clean %>%
+  comp_barplot(
+    tax_level = "Family", n_taxa = 15, other_name = "Other",
+    taxon_renamer = function(x) stringr::str_remove(x, " [ae]t rel."),
+    palette = distinct_palette(n = 15, add = "grey90"),
+    merge_other = FALSE, bar_outline_colour = "darkgrey"
+  ) +
+  coord_flip() +
+  facet_wrap("Organism", nrow = 1, scales = "free") +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+```
+
+---
+
+# 6. Beta diversity
+
+```{r clr-transform}
+physeq_clr <- physeq_clean %>%
+  tax_transform(trans = "clr", rank = "Genus")
+```
+
+## 6.1 PCoA (Bray-Curtis)
+
+```{r pcoa}
+physeq_pcoa <- physeq_clean %>%
+  tax_transform(trans = "identity") %>%
+  dist_calc(dist = "bray") %>%
+  ord_calc(method = "PCoA")
+
+ord_plot(physeq_pcoa, color = "Organism", size = 4, alpha = 0.7) +
+  scale_color_manual(values = sp_colors_org, name = "Bee species") +
+  theme_classic() +
+  labs(color = "Bee species")
+```
+
+## 6.2 PCA (CLR) — all species
+
+```{r pca-all}
+physeq_pca <- physeq_clr %>%
+  ord_calc(method = "PCA")
+
+range_val <- physeq_pca %>%
+  ord_get() %>%
+  vegan::scores(display = "sites") %>%
+  .[, 1:2] %>% abs() %>% max()
+
+p_pca_all <- ord_plot(physeq_pca, colour = "Organism",
+                      size = 5, alpha = 0.7) +
+  scale_color_manual(values = sp_colors_org, name = "Bee species") +
+  theme_classic(base_size = 11) +
+  labs(color = "Bee species") +
+  coord_fixed()
+
+p_pca_all
+```
+
+## 6.3 PCA per species (by colony)
+
+```{r pca-per-species, fig.width=12, fig.height=6}
+physeq_angustula    <- subset_samples(physeq_clr, Organism == "Tetragonisca_angustula")
+physeq_orizabaensis <- subset_samples(physeq_clr, Organism == "Partamona_orizabaensis")
+
+pca_angustula    <- ord_calc(physeq_angustula,    method = "PCA")
+pca_orizabaensis <- ord_calc(physeq_orizabaensis, method = "PCA")
+
+p_angustula <- ord_plot(pca_angustula, colour = "ColonyName",
+                        size = 3.5, alpha = 0.7) +
+  scale_color_manual(values = wes_palette(n = 4, name = "AsteroidCity3")) +
+  theme_classic(base_size = 10) +
+  ggtitle(expression(italic("Tetragonisca angustula"))) +
+  labs(color = "Colony")
+
+p_orizabaensis <- ord_plot(pca_orizabaensis, colour = "ColonyName",
+                           size = 3.5, alpha = 0.7) +
+  scale_color_manual(values = c("#FC4E07", "#ffa987")) +
+  theme_classic(base_size = 10) +
+  ggtitle(expression(italic("Partamona orizabaensis"))) +
+  labs(color = "Colony")
+
+right_col <- plot_grid(p_angustula, p_orizabaensis,
+                       ncol = 1, align = "hv", axis = "tblr",
+                       labels = c("B", "C"), label_size = 14)
+
+fig_s2 <- plot_grid(p_pca_all + theme(legend.position = "right"),
+                    right_col,
+                    labels = c("A", ""), rel_widths = c(1.6, 1), align = "h")
+fig_s2
+
+ggsave("figures/raw/FigS2_ordination.pdf",
+       plot = fig_s2, device = "pdf", width = 32, height = 18, units = "cm")
+```
+
+## 6.4 PCoA (Bray-Curtis) — *T. angustula*, colored by Gilliamella presence/absence
+
+```{r pcoa-angustula-gilliamella, fig.width=6, fig.height=5}
+# Subset rarefied (non-CLR) data to T. angustula
+physeq_ang_raw <- subset_samples(physeq_clean, Organism == "Tetragonisca_angustula")
+
+# Gilliamella relative abundance per sample
+ps_rel_ang  <- transform_sample_counts(physeq_ang_raw, function(x) x / sum(x))
+ps_gill_ang <- ps_rel_ang %>%
+  subset_taxa(Genus == "Gilliamella") %>%
+  tax_glom(taxrank = "Genus")
+
+gill_df <- psmelt(ps_gill_ang) %>%
+  select(Sample, Abundance) %>%
+  rename(SampleID = Sample, gill_abun = Abundance)
+
+# Add Gilliamella P/A (cutoff: >1% per individual) to sample_data
+meta_ang <- data.frame(sample_data(physeq_ang_raw), stringsAsFactors = FALSE)
+meta_ang$SampleID <- rownames(meta_ang)
+meta_ang <- meta_ang %>%
+  left_join(gill_df, by = "SampleID") %>%
+  mutate(gill_abun      = replace_na(gill_abun, 0),
+         Gilliamella_PA = ifelse(gill_abun > 0.01, "Present", "Absent"))
+rownames(meta_ang) <- meta_ang$SampleID
+sample_data(physeq_ang_raw) <- sample_data(meta_ang[sample_names(physeq_ang_raw), ])
+
+# PCoA Bray-Curtis
+pcoa_ang_bray <- physeq_ang_raw %>%
+  tax_transform(trans = "identity") %>%
+  dist_calc(dist = "bray") %>%
+  ord_calc(method = "PCoA")
+
+# PERMANOVA
+otu_ang   <- as.data.frame(t(otu_table(physeq_ang_raw)))
+meta_perm <- meta_ang[rownames(otu_ang), ]
+perm_bray <- adonis2(otu_ang ~ Gilliamella_PA,
+                     data = meta_perm, method = "bray",
+                     permutations = 999, by = "margin")
+
+r2   <- round(perm_bray["Gilliamella_PA", "R2"], 3)
+pv   <- perm_bray["Gilliamella_PA", "Pr(>F)"]
+plab <- ifelse(pv < 0.001, "p < 0.001", paste0("p = ", round(pv, 3)))
+
+ord_plot(pcoa_ang_bray, color = "Gilliamella_PA", size = 4, alpha = 0.85) +
+  scale_color_manual(values = c("Present" = "#f5a623", "Absent" = "#9E9E9E"),
+                     name = "Gilliamella") +
+  annotate("text", x = -Inf, y = Inf,
+           label = paste0("R² = ", r2, ", ", plab),
+           hjust = -0.1, vjust = 1.5, size = 3.5) +
+  theme_classic() +
+  ggtitle(expression(italic("Tetragonisca angustula"))) +
+  coord_fixed()
+```
+
+---
+
+# 7. PERMANOVA
+
+## 7.1 All species
+
+```{r permanova-all}
+otu_all  <- as.data.frame(t(otu_table(physeq_clr)))
+meta_all <- data.frame(sample_data(physeq_clr), stringsAsFactors = FALSE)
+
+permanova_all <- adonis2(
+  otu_all ~ Organism, data = meta_all,
+  method = "euclidean", permutations = 999, by = "margin"
+)
+print(permanova_all)
+```
+
+## 7.2 Per species (by colony)
+
+```{r permanova-per-species}
+otu_angustula    <- as.data.frame(t(otu_table(physeq_angustula)))
+otu_orizabaensis <- as.data.frame(t(otu_table(physeq_orizabaensis)))
+meta_angustula    <- data.frame(sample_data(physeq_angustula),    stringsAsFactors = FALSE)
+meta_orizabaensis <- data.frame(sample_data(physeq_orizabaensis), stringsAsFactors = FALSE)
+
+permanova_angustula <- adonis2(
+  otu_angustula ~ ColonyName, data = meta_angustula,
+  method = "euclidean", permutations = 999, by = "margin"
+)
+
+permanova_orizabaensis <- adonis2(
+  otu_orizabaensis ~ ColonyName, data = meta_orizabaensis,
+  method = "euclidean", permutations = 999, by = "margin"
+)
+
+cat("=== Tetragonisca angustula ===\n"); print(permanova_angustula)
+cat("\n=== Partamona orizabaensis ===\n"); print(permanova_orizabaensis)
+```
+
+## 7.3 Betadisper (homogeneity of dispersion)
+
+```{r betadisper}
+dist_angustula    <- dist(otu_angustula,    method = "euclidean")
+dist_orizabaensis <- dist(otu_orizabaensis, method = "euclidean")
+
+cat("=== Tetragonisca angustula ===\n")
+permutest(betadisper(dist_angustula,    meta_angustula$ColonyName))
+
+cat("\n=== Partamona orizabaensis ===\n")
+permutest(betadisper(dist_orizabaensis, meta_orizabaensis$ColonyName))
+```
+
+---
+
+# 8. Symbiont relative abundance
+
+```{r symbiont-relabun}
+ps_rel <- transform_sample_counts(physeq_clean, function(x) x / sum(x))
+
+# Snodgrassella
+ps_snod <- ps_rel %>%
+  subset_taxa(Genus == "Snodgrassella") %>%
+  tax_glom(taxrank = "Genus")
+
+df_snod <- as.data.frame(otu_table(ps_snod)) %>%
+  rownames_to_column("Taxa") %>%
+  pivot_longer(-Taxa, names_to = "SampleID", values_to = "Abundance") %>%
+  mutate(Taxa = "Snodgrassella")
+
+# Gilliamella
+ps_gill <- ps_rel %>%
+  subset_taxa(Genus == "Gilliamella") %>%
+  tax_glom(taxrank = "Genus")
+
+df_gill <- as.data.frame(otu_table(ps_gill)) %>%
+  rownames_to_column("Taxa") %>%
+  pivot_longer(-Taxa, names_to = "SampleID", values_to = "Abundance") %>%
+  mutate(Taxa = "Gilliamella")
+
+df_symbionts <- bind_rows(df_snod, df_gill) %>%
+  left_join(metadata_jb, by = "SampleID") %>%
+  filter(!is.na(Abundance), !is.na(Organism))
+```
+
+```{r symbiont-mirror-histogram}
+ggplot(df_symbionts, aes(x = Abundance, fill = Taxa)) +
+  geom_histogram(
+    data = filter(df_symbionts, Taxa == "Snodgrassella"),
+    aes(y = ..count..), bins = 30, alpha = 0.7
+  ) +
+  geom_histogram(
+    data = filter(df_symbionts, Taxa == "Gilliamella"),
+    aes(y = -..count..), bins = 30, alpha = 0.7
+  ) +
+  facet_wrap(~ Organism) +
+  scale_fill_manual(values = c("Gilliamella" = "#2b9dce", "Snodgrassella" = "#e54b4b")) +
+  scale_y_continuous(labels = abs) +
+  labs(x = "Relative abundance", y = "Number of bees") +
+  coord_flip() +
+  theme_minimal()
+```
+
+## 8.2 Fig S3 — Mirror histogram (log scale, P/A threshold)
+
+```{r symbiont-mirror-log, fig.width=18, fig.height=5}
+# Small offset so zero-abundance samples render on log scale
+df_log <- df_symbionts %>%
+  mutate(Abun_plot = pmax(Abundance, 1e-5))
+
+ggplot(df_log, aes(x = Abun_plot, fill = Taxa)) +
+  geom_histogram(
+    data = filter(df_log, Taxa == "Snodgrassella"),
+    aes(y = ..count..), bins = 25, alpha = 0.7
+  ) +
+  geom_histogram(
+    data = filter(df_log, Taxa == "Gilliamella"),
+    aes(y = -..count..), bins = 25, alpha = 0.7
+  ) +
+  geom_vline(xintercept = 0.001, linetype = "dashed",
+             color = "black", linewidth = 0.6) +
+  facet_wrap(~ Organism, nrow = 1,
+             labeller = as_labeller(function(x) gsub("_", " ", x))) +
+  scale_x_log10(
+    breaks = c(1e-4, 1e-3, 1e-2, 1e-1, 1),
+    labels = c("0.0001", "0.001", "0.01", "0.1", "1")
+  ) +
+  scale_fill_manual(values = c("Gilliamella"   = "#2b9dce",
+                               "Snodgrassella" = "#e54b4b"),
+                   labels = c("Gilliamella"   = expression(italic("Gilliamella")),
+                               "Snodgrassella" = expression(italic("Snodgrassella")))) +
+  scale_y_continuous(labels = abs) +
+  labs(x = "Relative abundance (log scale)", y = "Number of bees",
+       fill = NULL,
+       caption = "Dashed line = 0.001 cutoff (presence/absence threshold).") +
+  coord_flip() +
+  theme_minimal() +
+  theme(strip.text    = element_text(face = "italic"),
+        plot.caption  = element_text(size = 8, color = "grey40"),
+        panel.spacing = unit(1.5, "lines"))
+
+ggsave("figures/raw/FigS3_symbiont_mirror_log.pdf", width = 18, height = 5)
+```
+
+---
+
+# 9. Shannon diversity curves (Fig. S2)
+
+Rarefaction of Shannon diversity by number of bees pooled.
+
+```{r shannon-rarefaction-fn}
+shannon_rarefaction <- function(asv_mat, iterations = 100) {
+  n <- ncol(asv_mat)
+  results <- matrix(NA_real_, nrow = n, ncol = iterations)
+  for (i in seq_len(n)) {
+    for (j in seq_len(iterations)) {
+      sel <- sample(seq_len(n), i)
+      sub <- if (i == 1) asv_mat[, sel, drop = FALSE] else rowSums(asv_mat[, sel, drop = FALSE])
+      results[i, j] <- diversity(sub, index = "shannon")
+    }
+  }
+  data.frame(
+    n_samples     = seq_len(n),
+    avg_diversity = rowMeans(results, na.rm = TRUE),
+    std_err       = apply(results, 1, sd, na.rm = TRUE) / sqrt(iterations)
+  )
+}
+```
+
+```{r shannon-curves, fig.width=12, fig.height=8}
+# ASV matrix (ASVs x samples) — forced to plain base R matrix
+otu_raw  <- otu_table(physeq_clean)
+otu_vals <- if (taxa_are_rows(physeq_clean)) slot(otu_raw, ".Data") else t(slot(otu_raw, ".Data"))
+asv_mat  <- matrix(as.numeric(otu_vals), nrow = nrow(otu_vals), dimnames = dimnames(otu_vals))
+
+meta_clean <- data.frame(sample_data(physeq_clean), stringsAsFactors = FALSE)
+meta_clean$SampleID <- rownames(meta_clean)
+
+make_rc_plot <- function(organism_name, color) {
+  meta_sp <- filter(meta_clean, Organism == organism_name)
+  mat_sp  <- asv_mat[, meta_sp$SampleID, drop = FALSE]
+  mat_sp  <- mat_sp[rowSums(mat_sp) > 0, , drop = FALSE]
+  res     <- shannon_rarefaction(mat_sp)
+
+  ggplot(res, aes(n_samples, avg_diversity)) +
+    geom_line(color = color) +
+    geom_errorbar(aes(ymin = avg_diversity - std_err,
+                      ymax = avg_diversity + std_err), width = 0.25) +
+    labs(title = paste0("*", gsub("_", " ", organism_name), "*"),
+         x = "Number of bees", y = "Average Shannon diversity") +
+    ylim(1, 4) +
+    theme_minimal() +
+    theme(plot.title = element_markdown())
+}
+
+Rc_po <- make_rc_plot("Partamona_orizabaensis",        sp_colors_org[["Partamona_orizabaensis"]])
+Rc_ss <- make_rc_plot("Scaptotrigona_subobscuripennis",sp_colors_org[["Scaptotrigona_subobscuripennis"]])
+Rc_ta <- make_rc_plot("Tetragonisca_angustula",        sp_colors_org[["Tetragonisca_angustula"]])
+Rc_tz <- make_rc_plot("Tetragona_ziegleri",           sp_colors_org[["Tetragona_ziegleri"]])
+Rc_tf <- make_rc_plot("Trigona_fulviventris",          sp_colors_org[["Trigona_fulviventris"]])
+
+Fig_S2 <- (Rc_po | Rc_ss | Rc_ta) / (Rc_tz | Rc_tf | plot_spacer())
+Fig_S2
+```
+
+---
+
+# 10. Collection map — Costa Rica
+
+```{r costa-rica-map, fig.width=9, fig.height=7, message=FALSE, warning=FALSE}
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggspatial)
+library(elevatr)
+library(terra)
+library(tidyterra)
+
+# Reuse master palette (defined in species-colors chunk); map uses space-separated names
+sp_colors <- setNames(sp_colors_org, gsub("_", " ", names(sp_colors_org)))
+
+# Collection data (Table 2 — Joyce et al.)
+df_map <- read.delim(paste0(path_raw, "CostaRica_metadata.tsv"),
+                     stringsAsFactors = FALSE)
+df_map <- df_map %>%
+  mutate(
+    Binomial  = paste(Genus, Species),
+    Latitude  = as.numeric(Latitude),
+    Longitude = as.numeric(Longitude)
+  )
+
+# Legend labels: "Genus species (n=samples, col=colonies)"
+sp_summary <- df_map %>%
+  group_by(Binomial) %>%
+  summarise(
+    n_samples  = n(),
+    n_colonies = n_distinct(ColonyID),
+    .groups    = "drop"
+  ) %>%
+  arrange(Binomial) %>%
+  mutate(
+    Species_label = paste0(Binomial, " (n=", n_samples, ", col=", n_colonies, ")")
+  )
+
+legend_colors <- setNames(sp_colors[sp_summary$Binomial], sp_summary$Species_label)
+
+# One point per colony
+df_unique <- df_map %>%
+  group_by(ColonyID, Binomial) %>%
+  summarise(
+    Latitude  = first(Latitude),
+    Longitude = first(Longitude),
+    .groups   = "drop"
+  ) %>%
+  left_join(sp_summary %>% select(Binomial, Species_label), by = "Binomial") %>%
+  mutate(Species_label = factor(Species_label, levels = sp_summary$Species_label))
+
+# Basemap layers
+costa_rica    <- ne_countries(country = "Costa Rica",              scale = "medium", returnclass = "sf")
+neighbors     <- ne_countries(country = c("Nicaragua", "Panama"),  scale = "medium", returnclass = "sf")
+provincias_sf <- ne_states(country = "Costa Rica", returnclass = "sf")
+
+# Elevation raster — z=8 for better detail at zoomed extent
+dem_terra <- elevatr::get_elev_raster(
+  locations = costa_rica, z = 8, clip = "locations"
+) %>%
+  terra::rast() %>%
+  terra::mask(terra::vect(costa_rica))
+
+# Map
+p <- ggplot() +
+
+  # Neighboring countries
+  geom_sf(data = neighbors,  fill = "grey90", color = "grey70", linewidth = 0.3) +
+
+  # Costa Rica with elevation
+  geom_sf(data = costa_rica, fill = "grey80", color = "grey50", linewidth = 1.0) +
+  geom_spatraster(data = dem_terra) +
+  scale_fill_gradientn(
+    colours  = c("grey78", "grey60", "grey40", "grey18"),
+    na.value = NA,
+    name     = "Elevation (m asl)"
+  ) +
+
+  # Collection points — slight jitter separates species at same site
+  geom_jitter(
+    data   = df_unique,
+    aes(x = Longitude, y = Latitude, color = Species_label),
+    size   = 5.5,
+    width  = 0.03,
+    height = 0.03,
+    alpha  = 0.7
+  ) +
+
+  # Scale bar
+  annotation_scale(
+    location   = "bl",
+    width_hint = 0.15,
+    height     = unit(0.15, "cm"),
+    fill       = c("grey60", "white"),
+    col        = "grey40"
+  ) +
+
+  # North arrow
+  annotation_north_arrow(
+    location = "tr",
+    height   = unit(1, "cm"),
+    width    = unit(1, "cm"),
+    style    = north_arrow_fancy_orienteering(
+      fill     = c("grey60", "white"),
+      line_col = "grey40",
+      text_col = "grey40"
+    )
+  ) +
+
+  # Species colors — custom palette matching rest of document
+  scale_color_manual(values = legend_colors, name = NULL) +
+
+  # Extent — verified to cover all 9 colonies with margin
+  coord_sf(xlim = c(-86.1, -84.4), ylim = c(9.95, 11.2), expand = FALSE) +
+
+  labs(
+    title   = "Stingless bee collection localities — Costa Rica",
+    x       = NULL,
+    y       = NULL,
+    caption = "Data: Joyce (2018)"
+  ) +
+
+  theme_bw(base_size = 11) +
+  theme(
+    legend.position  = "right",
+    legend.key.size  = unit(0.5, "cm"),
+    legend.text      = element_text(size = 8, face = "italic"),
+    plot.title       = element_text(face = "bold"),
+    panel.grid.major = element_line(color = "grey95")
+  )
+
+p
+```
+
+---
+
+```{r session-info, echo=FALSE}
+sessionInfo()
+```

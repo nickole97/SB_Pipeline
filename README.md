@@ -193,9 +193,9 @@ rmarkdown::render("scripts/CostaRica_Microbiome_Analysis.Rmd")
 
 ## Input Data
 
-Input tables are deposited in **Dryad** — DOI to be added upon publication. Raw sequencing
-reads are deposited separately in the **NCBI Sequence Read Archive** — accession to be added
-upon publication.
+Input tables are deposited in **Dryad**: [10.5061/dryad.0k6djhbhk](https://doi.org/10.5061/dryad.0k6djhbhk). Raw sequencing
+reads are deposited separately in the **European Nucleotide Archive** under study accession
+[PRJEB97714](https://www.ebi.ac.uk/ena/browser/view/PRJEB97714).
 
 Download the following files from Dryad and place them in `data/raw/` before running the
 pipeline.

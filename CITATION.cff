@@ -4,9 +4,27 @@ message: "If you use this code, please cite both the software and the associated
 type: software
 authors:
   - family-names: Villabona
-    given-names: Nickole
+    given-names: Nickole A.
     email: nvillabo@uci.edu
-    affiliation: "University of California, Irvine"
+    affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+  - family-names: Vazquez
+    given-names: Alejandro
+    affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+  - family-names: Schlauch
+    given-names: Jennifer
+    affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+  - family-names: Rasmussen
+    given-names: Claus
+    affiliation: "Department of Agroecology, Aarhus University, Aarhus, Denmark"
+  - family-names: Joyce
+    given-names: Richard
+    affiliation: "The Xerces Society for Invertebrate Conservation, Portland, OR, USA"
+  - family-names: Martinez
+    given-names: Christopher M.
+    affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+  - family-names: Hammer
+    given-names: Tobin J.
+    affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
 repository-code: "https://github.com/nickole97/SB_Pipeline"
 license: MIT
 keywords:
@@ -16,14 +34,34 @@ keywords:
   - 16S rRNA
   - qPCR
   - phylogenetic comparative methods
+  - amplicon sequencing
 
-# TODO before submission: add co-authors, the bioRxiv DOI, and the publication date.
+# El artículo está en revisión en Proceedings of the Royal Society B.
+# Actualizar `journal`, `doi` y `year` cuando sea aceptado.
 preferred-citation:
   type: article
   title: "Gain and loss of gut symbionts during stingless bee diversification is linked to host group size"
   authors:
     - family-names: Villabona
-      given-names: Nickole
-      affiliation: "University of California, Irvine"
+      given-names: Nickole A.
+      affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    - family-names: Vazquez
+      given-names: Alejandro
+      affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    - family-names: Schlauch
+      given-names: Jennifer
+      affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    - family-names: Rasmussen
+      given-names: Claus
+      affiliation: "Department of Agroecology, Aarhus University, Aarhus, Denmark"
+    - family-names: Joyce
+      given-names: Richard
+      affiliation: "The Xerces Society for Invertebrate Conservation, Portland, OR, USA"
+    - family-names: Martinez
+      given-names: Christopher M.
+      affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    - family-names: Hammer
+      given-names: Tobin J.
+      affiliation: "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
   journal: bioRxiv
   year: 2026

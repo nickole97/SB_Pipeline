@@ -1,0 +1,59 @@
+{
+  "upload_type": "software",
+  "title": "SB_Pipeline: 16S amplicon and qPCR analysis pipeline for stingless bee gut microbiomes",
+  "description": "<p>Analysis code for <em>Gain and loss of gut symbionts during stingless bee diversification is linked to host group size</em>. The pipeline processes 16S rRNA V4 amplicon data from stingless bee (Apidae: Meliponini) guts across two independent datasets: a global collection of 190 samples spanning 50 species from 15 countries, and a Costa Rica collection of 191 samples from 5 species across 9 colonies.</p><p>It covers contaminant identification with decontam, alpha and beta diversity, qPCR-based absolute abundance estimation, and phylogenetic comparative methods (PGLS, Pagel's lambda, ancestral state reconstruction) testing symbiont presence and abundance against host colony size.</p><p>Input data are archived at Dryad (doi:10.5061/dryad.0k6djhbhk) and raw sequence reads at the European Nucleotide Archive (PRJEB97714).</p>",
+  "license": "MIT",
+  "access_right": "open",
+  "creators": [
+    {
+      "name": "Villabona, Nickole A.",
+      "affiliation": "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    },
+    {
+      "name": "Vazquez, Alejandro",
+      "affiliation": "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    },
+    {
+      "name": "Schlauch, Jennifer",
+      "affiliation": "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    },
+    {
+      "name": "Rasmussen, Claus",
+      "affiliation": "Department of Agroecology, Aarhus University, Aarhus, Denmark"
+    },
+    {
+      "name": "Joyce, Richard",
+      "affiliation": "The Xerces Society for Invertebrate Conservation, Portland, OR, USA"
+    },
+    {
+      "name": "Martinez, Christopher M.",
+      "affiliation": "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    },
+    {
+      "name": "Hammer, Tobin J.",
+      "affiliation": "Department of Ecology and Evolutionary Biology, University of California Irvine, Irvine, CA, USA"
+    }
+  ],
+  "keywords": [
+    "stingless bees",
+    "Meliponini",
+    "gut microbiome",
+    "16S rRNA",
+    "qPCR",
+    "phylogenetic comparative methods",
+    "amplicon sequencing",
+    "symbiosis"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.5061/dryad.0k6djhbhk",
+      "relation": "isSupplementTo",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "PRJEB97714",
+      "relation": "isSupplementTo",
+      "scheme": "ena"
+    }
+  ]
+}

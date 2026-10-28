@@ -31,3 +31,4 @@ data/raw/
 # R environment
 renv/library/
 renv/.cache/
+scripts/audit/

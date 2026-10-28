@@ -389,12 +389,13 @@ box_df <- estimated_abs_bySpp %>%
            "Comm_abs_mean"  = "Commensalibacter"),
          Symbiont = factor(Symbiont, levels = names(symbiont_colors)))
 
-# Order bee genera by mean Snodgrassella absolute abundance
+# Order bee genera by median Snodgrassella absolute abundance
+# (median is more robust than mean when values span many orders of magnitude)
 genus_order_box <- box_df %>%
   filter(Symbiont == "Snodgrassella") %>%
   group_by(Bee_Genus) %>%
-  summarise(mn = mean(AbsAbundance, na.rm = TRUE), .groups = "drop") %>%
-  arrange(desc(mn)) %>%
+  summarise(med = median(AbsAbundance, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(med)) %>%
   pull(Bee_Genus)
 
 box_df$Bee_Genus <- factor(box_df$Bee_Genus, levels = genus_order_box)
